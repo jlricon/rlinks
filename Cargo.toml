@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Jose Luis Ricon <jose@ricon.xyz>"]
 edition = "2018"
 license ="GPL"
-
+repository="https://github.com/jlricon/rlinks"
+description="Rusty Links (rlinks) finds dead links in your website (WIP)"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
