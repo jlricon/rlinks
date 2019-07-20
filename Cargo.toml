@@ -1,10 +1,11 @@
 [package]
 name = "rlinks"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Jose Luis Ricon <jose@ricon.xyz>"]
 edition = "2018"
 license ="GPL-3.0-or-later"
 repository="https://github.com/jlricon/rlinks"
+readme="README.md"
 description="Rusty Links (rlinks) finds dead links in your website"
 keywords=["dead","links","url","blog","www"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
