@@ -44,7 +44,7 @@ impl ColorsExt for str {
 pub fn make_app<'a, 'b>() -> App<'a, 'b> {
     App::new("Rusty Links")
         .version(crate_version!())
-        .author("Jose Luis Ricon <jose@ricon.xyz")
+        .author("Jose Luis Ricon <jose@ricon.xyz>")
         .about("Finds dead links in websites")
         .arg(
             Arg::with_name("INPUT")
