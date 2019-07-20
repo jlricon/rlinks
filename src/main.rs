@@ -4,14 +4,14 @@ use rlinks::{get_links_for_website, make_app, print_error, print_response};
 use std::collections::HashSet;
 use std::sync::mpsc;
 use tokio;
-const DEFAULT_PAR_REQ: usize = 100;
+const DEFAULT_PAR_REQ: usize = 10;
 #[macro_use]
 extern crate clap;
 fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool) {
     let client = Client::new();
     let (tx, rx) = mpsc::channel();
     let req_len = req.len();
-    println!("Checking for dead links...");
+    println!("Checking {} links for dead links...", req_len);
     let work = stream::iter_ok(req)
         .map(move |url| client.get(&url).send())
         .buffer_unordered(parallel_requests)
@@ -43,10 +43,10 @@ fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool) {
 fn main() {
     let app = make_app().get_matches();
 
-    let url = app.value_of("INPUT");
-    let parallel_req = value_t!(app.value_of("n_par"), usize).unwrap_or(DEFAULT_PAR_REQ);
-    let show_ok = value_t!(app.value_of("show_ok"), bool).unwrap_or(false);
+    let url = app.value_of("URL");
 
+    let parallel_req = value_t!(app.value_of("n_par"), usize).unwrap_or(DEFAULT_PAR_REQ);
+    let show_ok = app.is_present("show_ok");
     match url {
         Some(e) => {
             get_links_for_website(e.to_owned())

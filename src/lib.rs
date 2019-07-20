@@ -47,6 +47,11 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
         .author("Jose Luis Ricon <jose@ricon.xyz>")
         .about("Finds dead links in websites")
         .arg(
+            Arg::with_name("URL")
+                .index(1)
+                .help("URL to check links for (e.g. http://www.google.com)"),
+        )
+        .arg(
             Arg::with_name("n_par")
                 .short("p")
                 .long("n_par")
@@ -59,11 +64,6 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                 .short("s")
                 .long("show_ok")
                 .help("Show links that are ok"),
-        )
-        .arg(
-            Arg::with_name("URL")
-                .help("URL to check links for (e.g. http://www.google.com)")
-                .index(1),
         )
 }
 #[derive(Debug)]
@@ -79,8 +79,12 @@ fn add_http(url_string: &str) -> String {
     }
 }
 pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RustyLinksError> {
-    let fixed_url = add_http(&url_string);
-    let links = Url::parse(&fixed_url).map(|url| {
+    let fixed_url = Url::parse(&add_http(&url_string));
+    let fixed_url_string = match &fixed_url {
+        Ok(e) => e.as_str().to_owned(),
+        Err(_) => "".to_owned(),
+    };
+    let links = fixed_url.map(|url| {
         reqwest::get(url)
             .map(|doc| {
                 if is_valid_status_code(doc.status()) {
@@ -89,8 +93,10 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
                         .find(Name("a"))
                         .filter_map(|n| n.attr("href"))
                         .map(|x| {
-                            if x.starts_with("/") {
-                                Option::Some([&fixed_url, &x[1..]].concat())
+                            if x.starts_with("//") {
+                                Option::Some(format!("http://{}", &x[2..]))
+                            } else if x.starts_with("/") {
+                                Option::Some(format!("{}{}", fixed_url_string, &x[1..]))
                             } else if x.starts_with("http") {
                                 Option::Some(x.to_owned())
                             } else {
