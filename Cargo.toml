@@ -1,6 +1,6 @@
 [package]
 name = "rlinks"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jose Luis Ricon <jose@ricon.xyz>"]
 edition = "2018"
 license ="GPL-3.0-or-later"
@@ -13,3 +13,5 @@ reqwest = "0.9"
 tokio="0.1"
 futures="0.1"
 colored="1.8"
+clap="2"
+select="0.4"
