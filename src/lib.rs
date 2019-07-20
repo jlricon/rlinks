@@ -3,7 +3,7 @@ extern crate clap;
 
 use colored::{ColoredString, Colorize};
 use reqwest::r#async::Response;
-use reqwest::{StatusCode, Url};
+use reqwest::{Url, StatusCode};
 
 use select::document::Document;
 use select::predicate::Name;
@@ -15,19 +15,22 @@ pub fn print_error<T: Display>(x: T) {
     let formatted_str = format!("{}", x).bold_red();
     println!("{}", formatted_str);
 }
+fn is_valid_status_code(x:StatusCode)->bool{
+    x.is_success()|x.is_redirection()
+}
 pub fn print_response(x: Response) {
-    match x.status() {
-        StatusCode::OK => {
+    if is_valid_status_code(x.status()){
+
             let formatted_str =
                 format!("{} is valid ({})", x.url().as_str(), x.status().as_str()).bold_green();
             println!("{}", formatted_str);
         }
-        _ => {
+        else {
             let formatted_str =
                 format!("{} failed ({})", x.url().as_str(), x.status().as_str()).bold_red();
             println!("{}", formatted_str);
         }
-    }
+
 }
 pub trait ColorsExt {
     fn bold_red(&self) -> ColoredString;
@@ -67,8 +70,8 @@ fn add_http(url_string: &str) -> String {
 pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RustyLinksError> {
     let links = Url::parse(&add_http(&url_string)).map(|url| {
         reqwest::get(url)
-            .map(|doc| match doc.status() {
-                StatusCode::OK => Document::from_read(doc)
+            .map(|doc| if is_valid_status_code(doc.status()) {
+                Document::from_read(doc)
                     .unwrap()
                     .find(Name("a"))
                     .filter_map(|n| n.attr("href"))
@@ -86,12 +89,12 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
                         Some(e) => e,
                         _ => panic!("This can't happen"),
                     })
-                    .collect(),
-                _ => {
+                    .collect()}
+                else {
                     let err = format!("Could not reach website {}: {}", url_string, doc.status());
                     print_error(err);
                     HashSet::new()
-                }
+
             })
             .map_err(|e| println!("{:?}", e))
     });
