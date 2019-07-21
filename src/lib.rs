@@ -2,15 +2,19 @@
 extern crate clap;
 
 use colored::{ColoredString, Colorize};
-use reqwest::r#async::Response;
-use reqwest::{StatusCode, Url};
+use reqwest::Response;
+use reqwest::{Error, StatusCode, Url};
 
+use clap::{App, Arg};
+use futures::future;
+use futures::future::FutureResult;
 use select::document::Document;
 use select::predicate::Name;
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::sync::mpsc::Sender;
+pub const DEFAULT_PAR_REQ: usize = 20;
 
-use clap::{App, Arg};
 pub fn print_error<T: Display>(x: T) {
     let formatted_str = format!("{}", x).bold_red();
     println!("{}", formatted_str);
@@ -18,7 +22,7 @@ pub fn print_error<T: Display>(x: T) {
 fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
 }
-pub fn print_response(x: Response) {
+pub fn print_response(x: reqwest::r#async::Response) {
     if is_valid_status_code(x.status()) {
         let formatted_str =
             format!("{} is valid ({})", x.url().as_str(), x.status().as_str()).bold_green();
@@ -56,7 +60,8 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                 .short("p")
                 .long("n_par")
                 .value_name("N_PAR")
-                .help("Number of parallel requests (Default 100)")
+                // Keep this in sync with DEFAULT_PAR_REQ
+                .help("Number of parallel requests (Default 20)")
                 .takes_value(true),
         )
         .arg(
@@ -78,6 +83,20 @@ fn add_http(url_string: &str) -> String {
         url_string.to_owned()
     }
 }
+fn fix_malformed_url(x: &str, fixed_url_string: &str) -> Option<String> {
+    if x.starts_with("//") {
+        Option::Some(format!("http://{}", &x[2..]))
+    } else if x.starts_with("/") {
+        Option::Some(format!("{}{}", fixed_url_string, &x[1..]))
+    } else if x.starts_with("http") {
+        Option::Some(x.to_owned())
+    } else {
+        Option::None
+    }
+}
+fn get_response(url: Url) -> Result<Response, Error> {
+    reqwest::get(url)
+}
 pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RustyLinksError> {
     let fixed_url = Url::parse(&add_http(&url_string));
     let fixed_url_string = match &fixed_url {
@@ -85,29 +104,14 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
         Err(_) => "".to_owned(),
     };
     let links = fixed_url.map(|url| {
-        reqwest::get(url)
+        get_response(url)
             .map(|doc| {
                 if is_valid_status_code(doc.status()) {
                     Document::from_read(doc)
                         .unwrap()
                         .find(Name("a"))
                         .filter_map(|n| n.attr("href"))
-                        .map(|x| {
-                            if x.starts_with("//") {
-                                Option::Some(format!("http://{}", &x[2..]))
-                            } else if x.starts_with("/") {
-                                Option::Some(format!("{}{}", fixed_url_string, &x[1..]))
-                            } else if x.starts_with("http") {
-                                Option::Some(x.to_owned())
-                            } else {
-                                Option::None
-                            }
-                        })
-                        .filter(|elem| elem.is_some())
-                        .map(|elem| match elem {
-                            Some(e) => e,
-                            _ => panic!("This can't happen"),
-                        })
+                        .filter_map(|x| fix_malformed_url(x, &fixed_url_string))
                         .collect()
                 } else {
                     let err = format!("Could not reach website {}: {}", url_string, doc.status());
@@ -127,5 +131,56 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
             println!("{:?}", e);
             Err(RustyLinksError::MalformedUrl)
         }
+    }
+}
+pub fn handle_response(
+    response: Result<reqwest::r#async::Response, Error>,
+    show_ok: bool,
+    tx: Sender<u32>,
+) -> FutureResult<(), ()> {
+    match response {
+        Ok(x) => {
+            if show_ok {
+                print_response(x);
+            }
+
+            tx.send(1).unwrap();
+        }
+
+        Err(x) => {
+            print_error(x);
+        }
+    }
+
+    future::ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{add_http, fix_malformed_url};
+
+    #[test]
+    fn test_add_http() {
+        assert_eq!(add_http("http://test.com"), "http://test.com");
+        assert_eq!(add_http("https://test.com"), "https://test.com");
+        assert_eq!(add_http("test.com"), "http://test.com");
+        assert_eq!(add_http("www.test.com"), "http://www.test.com");
+    }
+    #[test]
+    fn test_fix_malformed_url() {
+        let base_url = "https://test.com/";
+        assert_eq!(
+            fix_malformed_url("http://test.com", base_url),
+            Option::Some("http://test.com".to_owned())
+        );
+        assert_eq!(
+            fix_malformed_url("//test2.com", base_url),
+            Option::Some("http://test2.com".to_owned())
+        );
+        assert_eq!(
+            fix_malformed_url("/subsite", base_url),
+            Option::Some("https://test.com/subsite".to_owned())
+        );
+        assert_eq!(fix_malformed_url("blah", base_url), Option::None);
     }
 }
