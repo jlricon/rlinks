@@ -97,12 +97,16 @@ fn fix_malformed_url(x: &str, fixed_url_string: &str) -> Option<String> {
 fn get_response(url: Url) -> Result<Response, Error> {
     reqwest::get(url)
 }
+fn get_url_root(url: &Url) -> &str {
+    url.host_str().unwrap()
+}
 pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RustyLinksError> {
     let fixed_url = Url::parse(&add_http(&url_string));
-    let fixed_url_string = match &fixed_url {
-        Ok(e) => e.as_str().to_owned(),
+    let fixed_url_string: String = match &fixed_url {
+        Ok(e) => format!("http://{}/", get_url_root(e)),
         Err(_) => "".to_owned(),
     };
+    println!("{}", fixed_url_string);
     let links = fixed_url.map(|url| {
         get_response(url)
             .map(|doc| {
@@ -140,11 +144,14 @@ pub fn handle_response(
 ) -> FutureResult<(), ()> {
     match response {
         Ok(x) => {
-            if show_ok {
+            if is_valid_status_code(x.status()) {
+                if show_ok {
+                    print_response(x);
+                }
+                tx.send(1).unwrap();
+            } else {
                 print_response(x);
             }
-
-            tx.send(1).unwrap();
         }
 
         Err(x) => {

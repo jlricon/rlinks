@@ -15,7 +15,7 @@ fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool) {
     let req_len = req.len();
     println!("Checking {} links for dead links...", req_len);
     let work = stream::iter_ok(req)
-        .map(move |url| client.get(&url).send())
+        .map(move |url| client.head(&url).send())
         .buffer_unordered(parallel_requests)
         .then(move |response| handle_response(response, show_ok, tx.clone()))
         .for_each(|_| Ok(()));
