@@ -88,6 +88,8 @@ fn fix_malformed_url(x: &str, fixed_url_string: &str) -> Option<String> {
         Option::Some(format!("http://{}", &x[2..]))
     } else if x.starts_with("/") {
         Option::Some(format!("{}{}", fixed_url_string, &x[1..]))
+    } else if x.starts_with("./") {
+        Option::Some(format!("{}{}", fixed_url_string, &x[2..]))
     } else if x.starts_with("http") {
         Option::Some(x.to_owned())
     } else {
