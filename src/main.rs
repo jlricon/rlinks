@@ -1,7 +1,11 @@
-use futures::{stream, Stream};
+use futures::{
+    future::{Either, Future},
+    stream, Stream,
+};
 use reqwest::r#async::Client;
 
-use rlinks::{get_links_for_website, handle_response, make_app, DEFAULT_PAR_REQ};
+use reqwest::StatusCode;
+use rlinks::{get_links_for_website, handle_response, make_app, print_error, DEFAULT_PAR_REQ};
 use std::collections::HashSet;
 use std::sync::mpsc;
 use tokio;
@@ -15,9 +19,19 @@ fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool) {
     let req_len = req.len();
     println!("Checking {} links for dead links...", req_len);
     let work = stream::iter_ok(req)
-        .map(move |url| client.head(&url).send())
+        .map(move |url| {
+            client.head(&url).send().and_then(move |f| {
+                if f.status() == StatusCode::METHOD_NOT_ALLOWED {
+                    let client2 = Client::new();
+                    Either::A(client2.get(&url).send())
+                } else {
+                    Either::B(futures::future::ok(f))
+                }
+            })
+        })
         .buffer_unordered(parallel_requests)
-        .then(move |response| handle_response(response, show_ok, tx.clone()))
+        .map(move |response| handle_response(response, show_ok, tx.clone()))
+        .map_err(|e| print_error(e))
         .for_each(|_| Ok(()));
 
     tokio::run(work);

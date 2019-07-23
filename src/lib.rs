@@ -140,27 +140,18 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
     }
 }
 pub fn handle_response(
-    response: Result<reqwest::r#async::Response, Error>,
+    response: reqwest::r#async::Response,
     show_ok: bool,
     tx: Sender<u32>,
 ) -> FutureResult<(), ()> {
-    match response {
-        Ok(x) => {
-            if is_valid_status_code(x.status()) {
-                if show_ok {
-                    print_response(x);
-                }
-                tx.send(1).unwrap();
-            } else {
-                print_response(x);
-            }
+    if is_valid_status_code(response.status()) {
+        if show_ok {
+            print_response(response);
         }
-
-        Err(x) => {
-            print_error(x);
-        }
+        tx.send(1).unwrap();
+    } else {
+        print_response(response);
     }
-
     future::ok(())
 }
 
