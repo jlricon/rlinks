@@ -30,8 +30,13 @@ fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool) {
             })
         })
         .buffer_unordered(parallel_requests)
-        .map(move |response| handle_response(response, show_ok, tx.clone()))
-        .map_err(|e| print_error(e))
+        .then(move |response| match response {
+            Ok(r) => Either::A(handle_response(r, show_ok, tx.clone())),
+            Err(r) => Either::B({
+                print_error(r);
+                futures::future::ok(())
+            }),
+        })
         .for_each(|_| Ok(()));
 
     tokio::run(work);
