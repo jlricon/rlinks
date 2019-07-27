@@ -7,7 +7,7 @@ Rusty Links -rlinks- is a dead dlink checker
 ## Usage
 
 ```
-Rusty Links 0.2.9
+Rusty Links 0.3.0
 Jose Luis Ricon <jose@ricon.xyz>
 Finds dead links in websites
 

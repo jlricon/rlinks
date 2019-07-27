@@ -1,19 +1,20 @@
 #[macro_use]
 extern crate clap;
 
-use colored::{ColoredString, Colorize};
-use reqwest::Response;
-use reqwest::{Error, StatusCode, Url};
-
 use clap::{App, Arg};
+use colored::{ColoredString, Colorize};
 use futures::future;
 use futures::future::FutureResult;
+use reqwest::r#async::{Client as AsyncClient, Response as AsyncResponse};
+use reqwest::{Client, Error, Response, StatusCode, Url,header::USER_AGENT};
 use select::document::Document;
 use select::predicate::Name;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::mpsc::Sender;
 pub const DEFAULT_PAR_REQ: usize = 20;
+pub const RLINKS_USER_AGENT: &str =
+    "Mozilla/5.0 (compatible; Rlinks/0.2; +https://github.com/jlricon/rlinks/)";
 
 pub fn print_error<T: Display>(x: T) {
     let formatted_str = format!("{}", x).bold_red();
@@ -22,7 +23,7 @@ pub fn print_error<T: Display>(x: T) {
 fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
 }
-pub fn print_response(x: reqwest::r#async::Response) {
+pub fn print_response(x: AsyncResponse) {
     if is_valid_status_code(x.status()) {
         let formatted_str =
             format!("{} is valid ({})", x.url().as_str(), x.status().as_str()).bold_green();
@@ -96,8 +97,24 @@ fn fix_malformed_url(x: &str, fixed_url_string: &str) -> Option<String> {
         Option::None
     }
 }
+
+pub fn get_client() -> AsyncClient {
+    AsyncClient::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .unwrap()
+}
+fn get_sync_client() -> Client {
+    Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .unwrap()
+}
 fn get_response(url: Url) -> Result<Response, Error> {
-    reqwest::get(url)
+    get_sync_client()
+        .get(url)
+        .header(USER_AGENT, RLINKS_USER_AGENT)
+        .send()
 }
 fn get_url_root(url: &Url) -> &str {
     url.host_str().unwrap()
@@ -111,10 +128,9 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
     println!("{}", fixed_url_string);
     let links = fixed_url.map(|url| {
         get_response(url)
-            .map(|doc| {
+            .map(move |mut doc| {
                 if is_valid_status_code(doc.status()) {
-                    Document::from_read(doc)
-                        .unwrap()
+                    Document::from(doc.text().unwrap().as_str())
                         .find(Name("a"))
                         .filter_map(|n| n.attr("href"))
                         .filter_map(|x| fix_malformed_url(x, &fixed_url_string))
@@ -140,7 +156,7 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
     }
 }
 pub fn handle_response(
-    response: reqwest::r#async::Response,
+    response: AsyncResponse,
     show_ok: bool,
     tx: Sender<u32>,
 ) -> FutureResult<(), ()> {

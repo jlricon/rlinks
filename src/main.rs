@@ -2,32 +2,45 @@ use futures::{
     future::{Either, Future},
     stream, Stream,
 };
-use reqwest::r#async::Client;
 
+use reqwest::header::USER_AGENT;
 use reqwest::StatusCode;
-use rlinks::{get_links_for_website, handle_response, make_app, print_error, DEFAULT_PAR_REQ};
+use rlinks::{
+    get_client, get_links_for_website, handle_response, make_app, print_error, DEFAULT_PAR_REQ,
+    RLINKS_USER_AGENT,
+};
 use std::collections::HashSet;
 use std::sync::mpsc;
 use tokio;
+
 
 #[macro_use]
 extern crate clap;
 
 fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool) {
-    let client = Client::new();
+    let client = get_client();
     let (tx, rx) = mpsc::channel();
     let req_len = req.len();
     println!("Checking {} links for dead links...", req_len);
     let work = stream::iter_ok(req)
         .map(move |url| {
-            client.head(&url).send().and_then(move |f| {
-                if f.status() == StatusCode::METHOD_NOT_ALLOWED {
-                    let client2 = Client::new();
-                    Either::A(client2.get(&url).send())
-                } else {
-                    Either::B(futures::future::ok(f))
-                }
-            })
+            client
+                .head(&url)
+                .header(USER_AGENT, RLINKS_USER_AGENT)
+                .send()
+                .and_then(move |f| {
+                    if f.status() == StatusCode::METHOD_NOT_ALLOWED {
+                        let client2 = get_client();
+                        Either::A(
+                            client2
+                                .get(&url)
+                                .header(USER_AGENT, RLINKS_USER_AGENT)
+                                .send(),
+                        )
+                    } else {
+                        Either::B(futures::future::ok(f))
+                    }
+                })
         })
         .buffer_unordered(parallel_requests)
         .then(move |response| match response {
