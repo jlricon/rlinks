@@ -4,15 +4,13 @@ use futures::{
 };
 
 use reqwest::header::USER_AGENT;
-use reqwest::StatusCode;
 use rlinks::{
-    get_client, get_links_for_website, handle_response, make_app, print_error, DEFAULT_PAR_REQ,
-    RLINKS_USER_AGENT,
+    get_client, get_links_for_website, handle_response, is_valid_status_code, make_app,
+    print_error, DEFAULT_PAR_REQ, RLINKS_USER_AGENT,
 };
 use std::collections::HashSet;
 use std::sync::mpsc;
 use tokio;
-
 
 #[macro_use]
 extern crate clap;
@@ -24,13 +22,13 @@ fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool) {
     println!("Checking {} links for dead links...", req_len);
     let work = stream::iter_ok(req)
         .map(move |url| {
+            let client2 = get_client();
             client
                 .head(&url)
                 .header(USER_AGENT, RLINKS_USER_AGENT)
                 .send()
                 .and_then(move |f| {
-                    if f.status() == StatusCode::METHOD_NOT_ALLOWED {
-                        let client2 = get_client();
+                    if !is_valid_status_code(f.status()) {
                         Either::A(
                             client2
                                 .get(&url)

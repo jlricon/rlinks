@@ -6,13 +6,13 @@ use colored::{ColoredString, Colorize};
 use futures::future;
 use futures::future::FutureResult;
 use reqwest::r#async::{Client as AsyncClient, Response as AsyncResponse};
-use reqwest::{Client, Error, Response, StatusCode, Url,header::USER_AGENT};
+use reqwest::{header::USER_AGENT, Client, Error, Response, StatusCode, Url};
 use select::document::Document;
 use select::predicate::Name;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::mpsc::Sender;
-pub const DEFAULT_PAR_REQ: usize = 20;
+pub const DEFAULT_PAR_REQ: usize = 10;
 pub const RLINKS_USER_AGENT: &str =
     "Mozilla/5.0 (compatible; Rlinks/0.2; +https://github.com/jlricon/rlinks/)";
 
@@ -20,7 +20,7 @@ pub fn print_error<T: Display>(x: T) {
     let formatted_str = format!("{}", x).bold_red();
     println!("{}", formatted_str);
 }
-fn is_valid_status_code(x: StatusCode) -> bool {
+pub fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
 }
 pub fn print_response(x: AsyncResponse) {
@@ -101,12 +101,14 @@ fn fix_malformed_url(x: &str, fixed_url_string: &str) -> Option<String> {
 pub fn get_client() -> AsyncClient {
     AsyncClient::builder()
         .danger_accept_invalid_certs(true)
+        .cookie_store(true)
         .build()
         .unwrap()
 }
 fn get_sync_client() -> Client {
     Client::builder()
         .danger_accept_invalid_certs(true)
+        .cookie_store(true)
         .build()
         .unwrap()
 }
