@@ -12,9 +12,12 @@ use select::predicate::Name;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::mpsc::Sender;
+use std::time::Duration;
+
 pub const DEFAULT_PAR_REQ: usize = 10;
 pub const RLINKS_USER_AGENT: &str =
     "Mozilla/5.0 (compatible; Rlinks/0.2; +https://github.com/jlricon/rlinks/)";
+const TIMEOUT_SECONDS: u64 = 30;
 
 pub fn print_error<T: Display>(x: T) {
     let formatted_str = format!("{}", x).bold_red();
@@ -102,6 +105,7 @@ pub fn get_client() -> AsyncClient {
     AsyncClient::builder()
         .danger_accept_invalid_certs(true)
         .cookie_store(true)
+        .timeout(Duration::from_secs(TIMEOUT_SECONDS))
         .build()
         .unwrap()
 }
@@ -109,6 +113,7 @@ fn get_sync_client() -> Client {
     Client::builder()
         .danger_accept_invalid_certs(true)
         .cookie_store(true)
+        .timeout(Duration::from_secs(TIMEOUT_SECONDS))
         .build()
         .unwrap()
 }
