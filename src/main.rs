@@ -8,7 +8,7 @@ use reqwest::header::USER_AGENT;
 use reqwest::r#async::Client;
 use rlinks::{
     get_client, get_links_for_website, handle_response, make_app, DEFAULT_PAR_REQ,
-    RLINKS_USER_AGENT,
+    RLINKS_USER_AGENT,RequestType
 };
 use std::collections::HashSet;
 use tokio;
@@ -21,14 +21,14 @@ fn make_request(client: Client, url: String, show_ok: bool) -> impl Future<Item 
         .header(USER_AGENT, RLINKS_USER_AGENT)
         .send()
         .then(move |result| {
-            if handle_response(result, show_ok, "HEAD").is_err() {
+            if handle_response(result, show_ok, RequestType::HEAD).is_err() {
                 Either::A(
                     client
                         .get(&url)
                         .header(USER_AGENT, RLINKS_USER_AGENT)
                         .send()
                         .then(move |result| {
-                            let num = match handle_response(result, show_ok, "GET") {
+                            let num = match handle_response(result, show_ok, RequestType::GET) {
                                 Ok(_) => 1,
                                 Err(_) => 0,
                             };

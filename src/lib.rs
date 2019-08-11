@@ -14,7 +14,7 @@ use std::time::Duration;
 
 pub const DEFAULT_PAR_REQ: usize = 10;
 pub const RLINKS_USER_AGENT: &str =
-    "Mozilla/5.0 (compatible; Rlinks/0.2; +https://github.com/jlricon/rlinks/)";
+    "Mozilla/5.0 (compatible; Rlinks/0.3; +https://github.com/jlricon/rlinks/)";
 const TIMEOUT_SECONDS: u64 = 30;
 
 pub fn print_error<T: Display>(x: T) {
@@ -23,12 +23,17 @@ pub fn print_error<T: Display>(x: T) {
 pub fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
 }
-pub fn print_response(x: AsyncResponse, method: &str) {
+#[derive(PartialEq,Debug)]
+pub enum RequestType {
+    GET,
+    HEAD,
+}
+pub fn print_response(x: AsyncResponse, method: RequestType) {
     if is_valid_status_code(x.status()) {
         println!(
             "{}",
             format!(
-                "{} is valid ({},{})",
+                "{} is valid ({:?},{})",
                 x.url().as_str(),
                 method,
                 x.status().as_str()
@@ -39,7 +44,7 @@ pub fn print_response(x: AsyncResponse, method: &str) {
         println!(
             "{}",
             format!(
-                "{} failed ({},{})",
+                "{} failed ({:?},{})",
                 x.url().as_str(),
                 method,
                 x.status().as_str()
@@ -176,7 +181,7 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
 pub fn handle_response(
     response: Result<AsyncResponse, Error>,
     show_ok: bool,
-    method: &str,
+    method: RequestType,
 ) -> Result<(), ()> {
     match response {
         Ok(x) => {
@@ -186,7 +191,7 @@ pub fn handle_response(
                 }
                 Ok(())
             } else {
-                if method == "GET" {
+                if method == RequestType::GET {
                     print_response(x, method);
                 }
                 Err(())
@@ -198,7 +203,7 @@ pub fn handle_response(
                 println!("{}", err_msg.bold_green());
                 Ok(())
             } else {
-                if method == "GET" {
+                if method == RequestType::GET {
                     print_error(e);
                 }
                 Err(())
