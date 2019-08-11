@@ -1,57 +1,65 @@
 use futures::{
-    future::{Either, Future},
+    future::{self, Either, Future},
     stream, Stream,
 };
 
+use futures::sync::oneshot;
 use reqwest::header::USER_AGENT;
+use reqwest::r#async::Client;
 use rlinks::{
-    get_client, get_links_for_website, handle_response, is_valid_status_code, make_app,
-    print_error, DEFAULT_PAR_REQ, RLINKS_USER_AGENT,
+    get_client, get_links_for_website, handle_response, make_app, DEFAULT_PAR_REQ,
+    RLINKS_USER_AGENT,
 };
 use std::collections::HashSet;
-use std::sync::mpsc;
 use tokio;
 
 #[macro_use]
 extern crate clap;
+fn make_request(client: Client, url: String, show_ok: bool) -> impl Future<Item = u32, Error = ()> {
+    client
+        .head(&url)
+        .header(USER_AGENT, RLINKS_USER_AGENT)
+        .send()
+        .then(move |result| {
+            if handle_response(result, show_ok, "HEAD").is_err() {
+                Either::A(
+                    client
+                        .get(&url)
+                        .header(USER_AGENT, RLINKS_USER_AGENT)
+                        .send()
+                        .then(move |result| {
+                            let num = match handle_response(result, show_ok, "GET") {
+                                Ok(_) => 1,
+                                Err(_) => 0,
+                            };
 
+                            Ok(num)
+                        }),
+                )
+            } else {
+                Either::B(future::ok(1))
+            }
+        })
+}
 fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool) {
     let client = get_client();
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = oneshot::channel();
     let req_len = req.len();
     println!("Checking {} links for dead links...", req_len);
     let work = stream::iter_ok(req)
-        .map(move |url| {
-            let client2 = get_client();
-            client
-                .head(&url)
-                .header(USER_AGENT, RLINKS_USER_AGENT)
-                .send()
-                .and_then(move |f| {
-                    if !is_valid_status_code(f.status()) {
-                        Either::A(
-                            client2
-                                .get(&url)
-                                .header(USER_AGENT, RLINKS_USER_AGENT)
-                                .send(),
-                        )
-                    } else {
-                        Either::B(futures::future::ok(f))
-                    }
-                })
-        })
+        .map(move |url| make_request(client.clone(), url, show_ok))
         .buffer_unordered(parallel_requests)
-        .then(move |response| match response {
-            Ok(r) => Either::A(handle_response(r, show_ok, tx.clone())),
-            Err(r) => Either::B({
-                print_error(r);
-                futures::future::ok(())
-            }),
-        })
-        .for_each(|_| Ok(()));
-
+        .fold(0, |count, res| Ok(count + res))
+        .then(|result| {
+            let _ = tx.send(result);
+            Ok::<(), ()>(())
+        });
     tokio::run(work);
-    println!("Got {}/{} valid links", rx.iter().sum::<u32>(), req_len);
+    if let Ok(count) = rx.wait().unwrap() {
+        println!("Got {}/{} valid links", count, req_len);
+    } else {
+        eprintln!("Error fetching links.");
+    }
 }
 
 fn main() {

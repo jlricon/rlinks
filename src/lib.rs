@@ -3,15 +3,13 @@ extern crate clap;
 
 use clap::{App, Arg};
 use colored::{ColoredString, Colorize};
-use futures::future;
-use futures::future::FutureResult;
+
 use reqwest::r#async::{Client as AsyncClient, Response as AsyncResponse};
 use reqwest::{header::USER_AGENT, Client, Error, Response, StatusCode, Url};
 use select::document::Document;
 use select::predicate::Name;
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::sync::mpsc::Sender;
 use std::time::Duration;
 
 pub const DEFAULT_PAR_REQ: usize = 10;
@@ -20,21 +18,34 @@ pub const RLINKS_USER_AGENT: &str =
 const TIMEOUT_SECONDS: u64 = 30;
 
 pub fn print_error<T: Display>(x: T) {
-    let formatted_str = format!("{}", x).bold_red();
-    println!("{}", formatted_str);
+    println!("{}", format!("{}", x).bold_red());
 }
 pub fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
 }
-pub fn print_response(x: AsyncResponse) {
+pub fn print_response(x: AsyncResponse, method: &str) {
     if is_valid_status_code(x.status()) {
-        let formatted_str =
-            format!("{} is valid ({})", x.url().as_str(), x.status().as_str()).bold_green();
-        println!("{}", formatted_str);
+        println!(
+            "{}",
+            format!(
+                "{} is valid ({},{})",
+                x.url().as_str(),
+                method,
+                x.status().as_str()
+            )
+            .bold_green()
+        );
     } else {
-        let formatted_str =
-            format!("{} failed ({})", x.url().as_str(), x.status().as_str()).bold_red();
-        println!("{}", formatted_str);
+        println!(
+            "{}",
+            format!(
+                "{} failed ({},{})",
+                x.url().as_str(),
+                method,
+                x.status().as_str()
+            )
+            .bold_red()
+        );
     }
 }
 pub trait ColorsExt {
@@ -163,19 +174,37 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
     }
 }
 pub fn handle_response(
-    response: AsyncResponse,
+    response: Result<AsyncResponse, Error>,
     show_ok: bool,
-    tx: Sender<u32>,
-) -> FutureResult<(), ()> {
-    if is_valid_status_code(response.status()) {
-        if show_ok {
-            print_response(response);
+    method: &str,
+) -> Result<(), ()> {
+    match response {
+        Ok(x) => {
+            if is_valid_status_code(x.status()) {
+                if show_ok {
+                    print_response(x, method);
+                }
+                Ok(())
+            } else {
+                if method == "GET" {
+                    print_response(x, method);
+                }
+                Err(())
+            }
         }
-        tx.send(1).unwrap();
-    } else {
-        print_response(response);
+        Err(e) => {
+            let err_msg = format!("{}", e);
+            if err_msg.contains("Infinite redirect loop") {
+                println!("{}", err_msg.bold_green());
+                Ok(())
+            } else {
+                if method == "GET" {
+                    print_error(e);
+                }
+                Err(())
+            }
+        }
     }
-    future::ok(())
 }
 
 #[cfg(test)]
