@@ -7,7 +7,7 @@ Rusty Links -rlinks- is a dead dlink checker
 ## Usage
 
 ```
-Rusty Links 0.3.3
+Rusty Links 0.3.4
 Jose Luis Ricon <jose@ricon.xyz>
 Finds dead links in websites
 
@@ -25,5 +25,15 @@ OPTIONS:
 ARGS:
     <URL>    URL to check links for (e.g. http://www.google.com)
 
-
 ```
+
+## Benchmarks
+
+I tested this against [this](https://nintil.com/this-review-is-not-about-reviewing-the-elephant-in-the-brain/) long article with over a hundred links. linkchecker was run with `linkchecker --no-robots -r1 --check-extern https://nintil.com/this-review-is-not-about-reviewing-the-elephant-in-the-brain/`
+
+| Program     | Parallelism | Time    |
+| ----------- | ----------- | ------- |
+| rlinks      | 10          | 9.22 s  |
+| rlinks      | 100         | 3.976 s |
+| linkchecker | 10          | 17.723  |
+| linkchecker | 100         | 16.249  |

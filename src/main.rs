@@ -7,8 +7,8 @@ use futures::sync::oneshot;
 use reqwest::header::USER_AGENT;
 use reqwest::r#async::Client;
 use rlinks::{
-    get_client, get_links_for_website, handle_response, make_app, DEFAULT_PAR_REQ,
-    RLINKS_USER_AGENT,RequestType
+    get_client, get_links_for_website, handle_response, make_app, RequestType, DEFAULT_PAR_REQ,
+    RLINKS_USER_AGENT,
 };
 use std::collections::HashSet;
 use tokio;

@@ -3,7 +3,6 @@ extern crate clap;
 
 use clap::{App, Arg};
 use colored::{ColoredString, Colorize};
-
 use reqwest::r#async::{Client as AsyncClient, Response as AsyncResponse};
 use reqwest::{header::USER_AGENT, Client, Error, Response, StatusCode, Url};
 use select::document::Document;
@@ -23,34 +22,26 @@ pub fn print_error<T: Display>(x: T) {
 pub fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
 }
-#[derive(PartialEq,Debug)]
+#[derive(PartialEq, Debug)]
 pub enum RequestType {
     GET,
     HEAD,
 }
+fn response_to_msg(resp: AsyncResponse, method: RequestType, state: &str) -> String {
+    format!(
+        "{} is {} ({:?},{})",
+        resp.url().as_str(),
+        state,
+        method,
+        resp.status().as_str()
+    )
+    
+}
 pub fn print_response(x: AsyncResponse, method: RequestType) {
     if is_valid_status_code(x.status()) {
-        println!(
-            "{}",
-            format!(
-                "{} is valid ({:?},{})",
-                x.url().as_str(),
-                method,
-                x.status().as_str()
-            )
-            .bold_green()
-        );
+        println!("{}", response_to_msg(x, method, "valid").bold_green());
     } else {
-        println!(
-            "{}",
-            format!(
-                "{} failed ({:?},{})",
-                x.url().as_str(),
-                method,
-                x.status().as_str()
-            )
-            .bold_red()
-        );
+        println!("{}", response_to_msg(x, method, "invalid").bold_red());
     }
 }
 pub trait ColorsExt {
@@ -106,7 +97,7 @@ fn add_http(url_string: &str) -> String {
 fn fix_malformed_url(x: &str, fixed_url_string: &str) -> Option<String> {
     if x.starts_with("//") {
         Option::Some(format!("http://{}", &x[2..]))
-    } else if x.starts_with("/") {
+    } else if x.starts_with('/') {
         Option::Some(format!("{}{}", fixed_url_string, &x[1..]))
     } else if x.starts_with("./") {
         Option::Some(format!("{}{}", fixed_url_string, &x[2..]))
