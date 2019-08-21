@@ -11,7 +11,7 @@ use std::collections::HashSet;
 use std::fmt::Display;
 use std::time::Duration;
 
-pub const DEFAULT_PAR_REQ: usize = 10;
+pub const DEFAULT_PAR_REQ: &str = "10";
 pub const RLINKS_USER_AGENT: &str =
     "Mozilla/5.0 (compatible; Rlinks/0.3; +https://github.com/jlricon/rlinks/)";
 const TIMEOUT_SECONDS: u64 = 30;
@@ -35,7 +35,6 @@ fn response_to_msg(resp: AsyncResponse, method: RequestType, state: &str) -> Str
         method,
         resp.status().as_str()
     )
-    
 }
 pub fn print_response(x: AsyncResponse, method: RequestType) {
     if is_valid_status_code(x.status()) {
@@ -72,7 +71,8 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                 .long("n_par")
                 .value_name("N_PAR")
                 // Keep this in sync with DEFAULT_PAR_REQ
-                .help("Number of parallel requests (Default 20)")
+                .help("Number of parallel requests")
+                .default_value(DEFAULT_PAR_REQ)
                 .takes_value(true),
         )
         .arg(
@@ -81,6 +81,30 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                 .long("show_ok")
                 .help("Show links that are ok"),
         )
+        .arg(
+            Arg::with_name("user_agent")
+                .short("u")
+                .long("user_agent")
+                .takes_value(true)
+                .help("Choose your own custom user agent string")
+                .default_value(RLINKS_USER_AGENT),
+        )
+}
+pub struct Config {
+    pub n_par: usize,
+    pub user_agent: String,
+    pub show_ok: bool,
+}
+pub fn get_matches_or_fail(app: App) -> Result<Config, clap::Error> {
+    let matches = app.get_matches();
+    let n_par = value_t!(matches.value_of("n_par"), usize)?;
+    let user_agent = value_t!(matches.value_of("user_agent"), String)?;
+    let show_ok = matches.is_present("show_ok");
+    Ok(Config {
+        n_par,
+        user_agent,
+        show_ok,
+    })
 }
 #[derive(Debug)]
 pub enum RustyLinksError {
