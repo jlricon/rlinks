@@ -14,11 +14,12 @@ pub use cli::{get_matches_or_fail, make_app};
 use crate::cli::RLINKS_USER_AGENT;
 use crate::text::{print_error, print_response};
 use crate::text::ColorsExt;
-
+use crate::url::{add_http, fix_malformed_url, get_url_root};
 
 const TIMEOUT_SECONDS: u64 = 30;
 mod cli;
 mod text;
+mod url;
 
 pub fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
@@ -34,28 +35,6 @@ pub enum RequestType {
 pub enum RustyLinksError {
     MalformedUrl,
     RequestError,
-}
-
-fn add_http(url_string: &str) -> String {
-    if !(url_string.starts_with("http://") | url_string.starts_with("https://")) {
-        ["http://", url_string].concat()
-    } else {
-        url_string.to_owned()
-    }
-}
-
-fn fix_malformed_url(x: &str, fixed_url_string: &str) -> Option<String> {
-    if x.starts_with("//") {
-        Option::Some(format!("http://{}", &x[2..]))
-    } else if x.starts_with('/') {
-        Option::Some(format!("{}{}", fixed_url_string, &x[1..]))
-    } else if x.starts_with("./") {
-        Option::Some(format!("{}{}", fixed_url_string, &x[2..]))
-    } else if x.starts_with("http") {
-        Option::Some(x.to_owned())
-    } else {
-        Option::None
-    }
 }
 
 pub fn get_client() -> AsyncClient {
@@ -81,10 +60,6 @@ fn get_response(url: Url) -> Result<Response, Error> {
         .get(url)
         .header(USER_AGENT, RLINKS_USER_AGENT)
         .send()
-}
-
-fn get_url_root(url: &Url) -> &str {
-    url.host_str().unwrap()
 }
 
 pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RustyLinksError> {
@@ -155,36 +130,5 @@ pub fn handle_response(
                 Err(())
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{add_http, fix_malformed_url};
-
-    #[test]
-    fn test_add_http() {
-        assert_eq!(add_http("http://test.com"), "http://test.com");
-        assert_eq!(add_http("https://test.com"), "https://test.com");
-        assert_eq!(add_http("test.com"), "http://test.com");
-        assert_eq!(add_http("www.test.com"), "http://www.test.com");
-    }
-
-    #[test]
-    fn test_fix_malformed_url() {
-        let base_url = "https://test.com/";
-        assert_eq!(
-            fix_malformed_url("http://test.com", base_url),
-            Option::Some("http://test.com".to_owned())
-        );
-        assert_eq!(
-            fix_malformed_url("//test2.com", base_url),
-            Option::Some("http://test2.com".to_owned())
-        );
-        assert_eq!(
-            fix_malformed_url("/subsite", base_url),
-            Option::Some("https://test.com/subsite".to_owned())
-        );
-        assert_eq!(fix_malformed_url("blah", base_url), Option::None);
     }
 }
