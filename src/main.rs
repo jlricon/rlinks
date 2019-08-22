@@ -66,7 +66,7 @@ fn main() {
         Ok(c) => c,
         Err(e) => {
             println!("{}", e);
-            return ();
+            return;
         }
     };
     match app.get_matches().value_of("URL") {
