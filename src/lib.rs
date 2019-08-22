@@ -1,60 +1,35 @@
 #[macro_use]
 extern crate clap;
 
+use std::collections::HashSet;
+use std::time::Duration;
+
 use clap::{App, Arg};
-use colored::{ColoredString, Colorize};
 use reqwest::r#async::{Client as AsyncClient, Response as AsyncResponse};
 use reqwest::{header::USER_AGENT, Client, Error, Response, StatusCode, Url};
 use select::document::Document;
 use select::predicate::Name;
-use std::collections::HashSet;
-use std::fmt::Display;
-use std::time::Duration;
+
+use crate::text::ColorsExt;
+use crate::text::{print_error, print_response};
+
+mod text;
 
 pub const DEFAULT_PAR_REQ: &str = "10";
 pub const RLINKS_USER_AGENT: &str =
     "Mozilla/5.0 (compatible; Rlinks/0.3; +https://github.com/jlricon/rlinks/)";
 const TIMEOUT_SECONDS: u64 = 30;
 
-pub fn print_error<T: Display>(x: T) {
-    println!("{}", format!("{}", x).bold_red());
-}
 pub fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
 }
+
 #[derive(PartialEq, Debug)]
 pub enum RequestType {
     GET,
     HEAD,
 }
-fn response_to_msg(resp: AsyncResponse, method: RequestType, state: &str) -> String {
-    format!(
-        "{} is {} ({:?},{})",
-        resp.url().as_str(),
-        state,
-        method,
-        resp.status().as_str()
-    )
-}
-pub fn print_response(x: AsyncResponse, method: RequestType) {
-    if is_valid_status_code(x.status()) {
-        println!("{}", response_to_msg(x, method, "valid").bold_green());
-    } else {
-        println!("{}", response_to_msg(x, method, "invalid").bold_red());
-    }
-}
-pub trait ColorsExt {
-    fn bold_red(&self) -> ColoredString;
-    fn bold_green(&self) -> ColoredString;
-}
-impl ColorsExt for str {
-    fn bold_red(self: &str) -> ColoredString {
-        self.bold().red()
-    }
-    fn bold_green(self: &str) -> ColoredString {
-        self.bold().green()
-    }
-}
+
 pub fn make_app<'a, 'b>() -> App<'a, 'b> {
     App::new("Rusty Links")
         .version(crate_version!())
@@ -90,11 +65,13 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                 .default_value(RLINKS_USER_AGENT),
         )
 }
+
 pub struct Config {
     pub n_par: usize,
     pub user_agent: String,
     pub show_ok: bool,
 }
+
 pub fn get_matches_or_fail(app: App) -> Result<Config, clap::Error> {
     let matches = app.get_matches();
     let n_par = value_t!(matches.value_of("n_par"), usize)?;
@@ -106,11 +83,13 @@ pub fn get_matches_or_fail(app: App) -> Result<Config, clap::Error> {
         show_ok,
     })
 }
+
 #[derive(Debug)]
 pub enum RustyLinksError {
     MalformedUrl,
     RequestError,
 }
+
 fn add_http(url_string: &str) -> String {
     if !(url_string.starts_with("http://") | url_string.starts_with("https://")) {
         ["http://", url_string].concat()
@@ -118,6 +97,7 @@ fn add_http(url_string: &str) -> String {
         url_string.to_owned()
     }
 }
+
 fn fix_malformed_url(x: &str, fixed_url_string: &str) -> Option<String> {
     if x.starts_with("//") {
         Option::Some(format!("http://{}", &x[2..]))
@@ -140,6 +120,7 @@ pub fn get_client() -> AsyncClient {
         .build()
         .unwrap()
 }
+
 fn get_sync_client() -> Client {
     Client::builder()
         .danger_accept_invalid_certs(true)
@@ -148,15 +129,18 @@ fn get_sync_client() -> Client {
         .build()
         .unwrap()
 }
+
 fn get_response(url: Url) -> Result<Response, Error> {
     get_sync_client()
         .get(url)
         .header(USER_AGENT, RLINKS_USER_AGENT)
         .send()
 }
+
 fn get_url_root(url: &Url) -> &str {
     url.host_str().unwrap()
 }
+
 pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RustyLinksError> {
     let fixed_url = Url::parse(&add_http(&url_string));
     let fixed_url_string: String = match &fixed_url {
@@ -193,6 +177,7 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
         }
     }
 }
+
 pub fn handle_response(
     response: Result<AsyncResponse, Error>,
     show_ok: bool,
@@ -238,6 +223,7 @@ mod tests {
         assert_eq!(add_http("test.com"), "http://test.com");
         assert_eq!(add_http("www.test.com"), "http://www.test.com");
     }
+
     #[test]
     fn test_fix_malformed_url() {
         let base_url = "https://test.com/";
