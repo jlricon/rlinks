@@ -6,25 +6,36 @@ use futures::{
 use futures::sync::oneshot;
 use reqwest::header::USER_AGENT;
 use reqwest::r#async::Client;
+use reqwest::r#async::Response;
 use rlinks::{
     get_client, get_links_for_website, get_matches_or_fail, handle_response, make_app, RequestType,
 };
 use std::collections::HashSet;
 use tokio;
 
-fn make_request(
+fn request_with_header(
     client: Client,
+    user_agent: &str,
+    request_type: RequestType,
+    url: &str,
+) -> impl Future<Item = Response, Error = reqwest::Error> {
+    match request_type {
+        RequestType::HEAD => client.head(url),
+        RequestType::GET => client.get(url),
+    }
+    .header(USER_AGENT, user_agent)
+    .send()
+}
+fn make_request(
     url: String,
     show_ok: bool,
     user_agent: String,
 ) -> impl Future<Item = u32, Error = ()> {
-    client
-        .head(&url)
-        .header(USER_AGENT, user_agent.clone())
-        .send()
-        .then(move |result| {
-            if handle_response(result, show_ok, RequestType::HEAD).is_err() {
-                Either::A(client.get(&url).header(USER_AGENT, user_agent).send().then(
+    let client = get_client();
+    request_with_header(client.clone(), &user_agent, RequestType::HEAD, &url).then(move |result| {
+        if handle_response(result, show_ok, RequestType::HEAD).is_err() {
+            Either::A(
+                request_with_header(client, &user_agent, RequestType::GET, &url).then(
                     move |result| {
                         let num = match handle_response(result, show_ok, RequestType::GET) {
                             Ok(_) => 1,
@@ -33,19 +44,19 @@ fn make_request(
 
                         Ok(num)
                     },
-                ))
-            } else {
-                Either::B(future::ok(1))
-            }
-        })
+                ),
+            )
+        } else {
+            Either::B(future::ok(1))
+        }
+    })
 }
 fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool, user_agent: String) {
-    let client = get_client();
     let (tx, rx) = oneshot::channel();
     let req_len = req.len();
     println!("Checking {} links for dead links...", req_len);
     let work = stream::iter_ok(req)
-        .map(move |url| make_request(client.clone(), url, show_ok, user_agent.clone()))
+        .map(move |url| make_request(url, show_ok, user_agent.clone()))
         .buffer_unordered(parallel_requests)
         .fold(0, |count, res| Ok(count + res))
         .then(|result| {

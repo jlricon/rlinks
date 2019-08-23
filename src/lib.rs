@@ -4,16 +4,16 @@ extern crate clap;
 use std::collections::HashSet;
 use std::time::Duration;
 
-use reqwest::{Client, Error, header::USER_AGENT, Response, StatusCode, Url};
 use reqwest::r#async::{Client as AsyncClient, Response as AsyncResponse};
+use reqwest::{header::USER_AGENT, Client, Error, Response, StatusCode, Url};
 use select::document::Document;
 use select::predicate::Name;
 
 pub use cli::{get_matches_or_fail, make_app};
 
 use crate::cli::RLINKS_USER_AGENT;
-use crate::text::{print_error, print_response};
 use crate::text::ColorsExt;
+use crate::text::{print_error, print_response};
 use crate::url::{add_http, fix_malformed_url, get_url_root};
 
 const TIMEOUT_SECONDS: u64 = 30;
