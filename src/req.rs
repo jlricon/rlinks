@@ -1,25 +1,20 @@
-#[macro_use]
-extern crate clap;
-
 use std::collections::HashSet;
 use std::time::Duration;
 
+use reqwest::{Client, Error, header::USER_AGENT, Response, StatusCode};
 use reqwest::r#async::{Client as AsyncClient, Response as AsyncResponse};
-use reqwest::{header::USER_AGENT, Client, Error, Response, StatusCode, Url};
+use reqwest::Url;
 use select::document::Document;
 use select::predicate::Name;
 
-pub use cli::{get_matches_or_fail, make_app};
-
 use crate::cli::RLINKS_USER_AGENT;
-use crate::text::ColorsExt;
+use crate::error::RLinksError;
 use crate::text::{print_error, print_response};
-use crate::url::{add_http, fix_malformed_url, get_url_root};
+use crate::text::ColorsExt;
+use crate::url_fix::{add_http, fix_malformed_url, get_url_root};
 
 const TIMEOUT_SECONDS: u64 = 30;
-mod cli;
-mod text;
-mod url;
+
 
 pub fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
@@ -31,11 +26,6 @@ pub enum RequestType {
     HEAD,
 }
 
-#[derive(Debug)]
-pub enum RustyLinksError {
-    MalformedUrl,
-    RequestError,
-}
 
 pub fn get_client() -> AsyncClient {
     AsyncClient::builder()
@@ -62,7 +52,7 @@ fn get_response(url: Url) -> Result<Response, Error> {
         .send()
 }
 
-pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RustyLinksError> {
+pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RLinksError> {
     let fixed_url = Url::parse(&add_http(&url_string));
     let fixed_url_string: String = match &fixed_url {
         Ok(e) => format!("http://{}/", get_url_root(e)),
@@ -90,11 +80,11 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, Rust
     match links {
         Ok(e) => match e {
             Ok(e) => Ok(e),
-            Err(_) => Err(RustyLinksError::RequestError),
+            Err(_) => Err(RLinksError::RequestError),
         },
         Err(e) => {
             println!("{:?}", e);
-            Err(RustyLinksError::MalformedUrl)
+            Err(RLinksError::UrlParseError(e.to_string()))
         }
     }
 }

@@ -2,18 +2,19 @@ use reqwest::Url;
 
 pub fn add_http(url_string: &str) -> String {
     if !(url_string.starts_with("http://") | url_string.starts_with("https://")) {
-        ["http://", url_string].concat()
+        format!("http://{}",url_string)
     } else {
         url_string.to_owned()
     }
 }
-pub fn fix_malformed_url(x: &str, fixed_url_string: &str) -> Option<String> {
+
+pub fn fix_malformed_url(x: &str, base_url: &str) -> Option<String> {
     if x.starts_with("//") {
         Option::Some(format!("http://{}", &x[2..]))
     } else if x.starts_with('/') {
-        Option::Some(format!("{}{}", fixed_url_string, &x[1..]))
+        Option::Some(format!("{}{}", base_url, &x[1..]))
     } else if x.starts_with("./") {
-        Option::Some(format!("{}{}", fixed_url_string, &x[2..]))
+        Option::Some(format!("{}{}", base_url, &x[2..]))
     } else if x.starts_with("http") {
         Option::Some(x.to_owned())
     } else {
@@ -25,7 +26,7 @@ pub fn get_url_root(url: &Url) -> &str {
 }
 #[cfg(test)]
 mod tests {
-    use crate::url::{add_http, fix_malformed_url};
+    use crate::url_fix::{add_http, fix_malformed_url};
 
     #[test]
     fn test_add_http() {

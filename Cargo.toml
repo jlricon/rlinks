@@ -17,6 +17,7 @@ futures="0.1"
 colored="1.8"
 clap="2"
 select="0.4"
+url="2.1"
 [profile.release]
 opt-level = 3
 debug = false

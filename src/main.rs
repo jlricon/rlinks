@@ -1,18 +1,28 @@
+#[macro_use]
+extern crate clap;
+
+use std::collections::HashSet;
+
 use futures::{
     future::{self, Either, Future},
     stream, Stream,
 };
-
 use futures::sync::oneshot;
 use reqwest::header::USER_AGENT;
 use reqwest::r#async::Client;
 use reqwest::r#async::Response;
-use rlinks::{
-    get_client, get_links_for_website, get_matches_or_fail, handle_response, make_app, RequestType,
-};
-use std::collections::HashSet;
 use tokio;
 
+use crate::cli::{get_matches_or_fail, make_app};
+use crate::req::{
+    get_client, get_links_for_website, handle_response, RequestType,
+};
+
+mod error;
+mod req;
+mod cli;
+mod url_fix;
+mod text;
 fn request_with_header(
     client: Client,
     user_agent: &str,
