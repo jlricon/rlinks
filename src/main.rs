@@ -3,41 +3,38 @@ extern crate clap;
 
 use std::collections::HashSet;
 
+use futures::sync::oneshot;
 use futures::{
     future::{self, Either, Future},
     stream, Stream,
 };
-use futures::sync::oneshot;
 use reqwest::header::USER_AGENT;
-use reqwest::r#async::Client;
-use reqwest::r#async::Response;
+use reqwest::r#async::{Client, Response};
 use tokio;
 
 use crate::cli::{get_matches_or_fail, make_app};
-use crate::req::{
-    get_client, get_links_for_website, handle_response, RequestType,
-};
-
+use crate::req::{get_client, get_links_for_website, handle_response, RequestType};
+use reqwest::Url;
+mod cli;
 mod error;
 mod req;
-mod cli;
-mod url_fix;
 mod text;
+mod url_fix;
 fn request_with_header(
     client: Client,
     user_agent: &str,
     request_type: RequestType,
-    url: &str,
+    url: &Url,
 ) -> impl Future<Item = Response, Error = reqwest::Error> {
     match request_type {
-        RequestType::HEAD => client.head(url),
-        RequestType::GET => client.get(url),
+        RequestType::HEAD => client.head(url.to_owned()),
+        RequestType::GET => client.get(url.to_owned()),
     }
     .header(USER_AGENT, user_agent)
     .send()
 }
 fn make_request(
-    url: String,
+    url: Url,
     show_ok: bool,
     user_agent: String,
 ) -> impl Future<Item = u32, Error = ()> {
@@ -61,7 +58,7 @@ fn make_request(
         }
     })
 }
-fn fetch(req: HashSet<String>, parallel_requests: usize, show_ok: bool, user_agent: String) {
+fn fetch(req: HashSet<Url>, parallel_requests: usize, show_ok: bool, user_agent: String) {
     let (tx, rx) = oneshot::channel();
     let req_len = req.len();
     println!("Checking {} links for dead links...", req_len);

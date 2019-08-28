@@ -1,10 +1,9 @@
 use std::fmt::Display;
 
 use colored::{ColoredString, Colorize};
-use reqwest::StatusCode;
 
 use crate::RequestType;
-use reqwest::r#async::Response as AsyncResponse;
+use reqwest::{StatusCode,r#async::Response};
 pub trait ColorsExt {
     fn bold_red(&self) -> ColoredString;
     fn bold_green(&self) -> ColoredString;
@@ -20,7 +19,7 @@ impl ColorsExt for str {
 pub fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
 }
-pub fn print_response(x: AsyncResponse, method: RequestType) {
+pub fn print_response(x: Response, method: RequestType) {
     if is_valid_status_code(x.status()) {
         println!("{}", response_to_msg(x, method, "valid").bold_green());
     } else {
@@ -30,7 +29,7 @@ pub fn print_response(x: AsyncResponse, method: RequestType) {
 pub fn print_error<T: Display>(x: T) {
     println!("{}", format!("{}", x).bold_red());
 }
-fn response_to_msg(resp: AsyncResponse, method: RequestType, state: &str) -> String {
+fn response_to_msg(resp:Response, method: RequestType, state: &str) -> String {
     format!(
         "{} is {} ({:?},{})",
         resp.url().as_str(),

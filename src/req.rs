@@ -1,20 +1,21 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use reqwest::{Client, Error, header::USER_AGENT, Response, StatusCode};
-use reqwest::r#async::{Client as AsyncClient, Response as AsyncResponse};
-use reqwest::Url;
 use select::document::Document;
 use select::predicate::Name;
 
 use crate::cli::RLINKS_USER_AGENT;
 use crate::error::RLinksError;
-use crate::text::{print_error, print_response};
 use crate::text::ColorsExt;
+use crate::text::{print_error, print_response};
 use crate::url_fix::{add_http, fix_malformed_url, get_url_root};
+use reqwest::header::USER_AGENT;
+use reqwest::r#async::Client;
+use reqwest::r#async::Response;
+use reqwest::{Error, StatusCode, Url};
+use reqwest::{Response as SyncResponse,Client as SyncClient};
 
 const TIMEOUT_SECONDS: u64 = 30;
-
 
 pub fn is_valid_status_code(x: StatusCode) -> bool {
     x.is_success() | x.is_redirection()
@@ -26,17 +27,7 @@ pub enum RequestType {
     HEAD,
 }
 
-
-pub fn get_client() -> AsyncClient {
-    AsyncClient::builder()
-        .danger_accept_invalid_certs(true)
-        .cookie_store(true)
-        .timeout(Duration::from_secs(TIMEOUT_SECONDS))
-        .build()
-        .unwrap()
-}
-
-fn get_sync_client() -> Client {
+pub fn get_client() -> Client {
     Client::builder()
         .danger_accept_invalid_certs(true)
         .cookie_store(true)
@@ -44,29 +35,41 @@ fn get_sync_client() -> Client {
         .build()
         .unwrap()
 }
-
-fn get_response(url: Url) -> Result<Response, Error> {
-    get_sync_client()
-        .get(url)
-        .header(USER_AGENT, RLINKS_USER_AGENT)
-        .send()
+pub fn get_client_sync() -> SyncClient {
+    SyncClient::builder()
+        .danger_accept_invalid_certs(true)
+        .cookie_store(true)
+        .timeout(Duration::from_secs(TIMEOUT_SECONDS))
+        .build()
+        .unwrap()
 }
 
-pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RLinksError> {
+
+fn get_sync_response(url: Url) -> Result<SyncResponse, RLinksError> {
+    get_client_sync()
+        .get(url)
+        .header(USER_AGENT, RLINKS_USER_AGENT)
+        .send().map_err(|e|e.into())
+        
+}
+
+pub fn get_links_for_website(url_string: String) -> Result<HashSet<Url>, RLinksError> {
     let fixed_url = Url::parse(&add_http(&url_string));
     let fixed_url_string: String = match &fixed_url {
         Ok(e) => format!("http://{}/", get_url_root(e)),
         Err(_) => "".to_owned(),
     };
-    println!("{}", fixed_url_string);
     let links = fixed_url.map(|url| {
-        get_response(url)
+        get_sync_response(url)
             .map(move |mut doc| {
                 if is_valid_status_code(doc.status()) {
                     Document::from(doc.text().unwrap().as_str())
                         .find(Name("a"))
                         .filter_map(|n| n.attr("href"))
-                        .filter_map(|x| fix_malformed_url(x, &fixed_url_string))
+                        .filter_map(|x| match fix_malformed_url(x, &fixed_url_string) {
+                            Ok(e) => Some(e),
+                            Err(_) => None,
+                        })
                         .collect()
                 } else {
                     let err = format!("Could not reach website {}: {}", url_string, doc.status());
@@ -84,13 +87,13 @@ pub fn get_links_for_website(url_string: String) -> Result<HashSet<String>, RLin
         },
         Err(e) => {
             println!("{:?}", e);
-            Err(RLinksError::UrlParseError(e.to_string()))
+            Err(RLinksError::UrlParseError(e))
         }
     }
 }
 
 pub fn handle_response(
-    response: Result<AsyncResponse, Error>,
+    response: Result<Response, Error>,
     show_ok: bool,
     method: RequestType,
 ) -> Result<(), ()> {
