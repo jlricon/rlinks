@@ -4,8 +4,8 @@ os:
   - osx
   - windows
 rust:
-  - stable
-  - beta
+#  - stable
+#  - beta
   - nightly
 matrix:
   include:
@@ -13,5 +13,5 @@ matrix:
     - os: osx # run base tests on both platforms
     - os: linux
     - os: windows
-  allow_failures:
-    - rust: nightly
+#  allow_failures:
+#    - rust: nightly
