@@ -7,9 +7,9 @@ use std::{
 use futures::{stream, StreamExt, TryFutureExt};
 use http::{header::USER_AGENT, StatusCode};
 use isahc::{
-    Body,
     config::RedirectPolicy,
     prelude::{HttpClient, Request, Response},
+    Body,
 };
 use select::{document::Document, predicate::Name};
 use url::{Host, Url};

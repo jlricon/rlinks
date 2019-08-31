@@ -4,7 +4,7 @@ extern crate clap;
 use std::time::Duration;
 
 use crate::{
-    cli::{Config, get_matches_or_fail, make_app},
+    cli::{get_matches_or_fail, make_app, Config},
     error::RLinksError,
     req::{get_client, get_links_from_website, make_multiple_requests},
     url_fix::add_http,
