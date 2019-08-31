@@ -1,103 +1,40 @@
 #[macro_use]
 extern crate clap;
 
-use std::collections::HashSet;
+use std::time::Duration;
 
-use futures::sync::oneshot;
-use futures::{
-    future::{self, Either, Future},
-    stream, Stream,
+use crate::{
+    cli::{Config, get_matches_or_fail, make_app},
+    error::RLinksError,
+    req::{get_client, get_links_from_website, make_multiple_requests},
+    url_fix::add_http,
 };
-use reqwest::header::USER_AGENT;
-use reqwest::r#async::{Client, Response};
-use tokio;
 
-use crate::cli::{get_matches_or_fail, make_app};
-use crate::req::{get_client, get_links_for_website, handle_response, RequestType};
-use reqwest::Url;
 mod cli;
 mod error;
 mod req;
 mod text;
 mod url_fix;
-fn request_with_header(
-    client: Client,
-    user_agent: &str,
-    request_type: RequestType,
-    url: &Url,
-) -> impl Future<Item = Response, Error = reqwest::Error> {
-    match request_type {
-        RequestType::HEAD => client.head(url.to_owned()),
-        RequestType::GET => client.get(url.to_owned()),
-    }
-    .header(USER_AGENT, user_agent)
-    .send()
-}
-fn make_request(
-    url: Url,
-    show_ok: bool,
-    user_agent: String,
-) -> impl Future<Item = u32, Error = ()> {
-    let client = get_client();
-    request_with_header(client.clone(), &user_agent, RequestType::HEAD, &url).then(move |result| {
-        if handle_response(result, show_ok, RequestType::HEAD).is_err() {
-            Either::A(
-                request_with_header(client, &user_agent, RequestType::GET, &url).then(
-                    move |result| {
-                        let num = match handle_response(result, show_ok, RequestType::GET) {
-                            Ok(_) => 1,
-                            Err(_) => 0,
-                        };
 
-                        Ok(num)
-                    },
-                ),
-            )
-        } else {
-            Either::B(future::ok(1))
-        }
-    })
-}
-fn fetch(req: HashSet<Url>, parallel_requests: usize, show_ok: bool, user_agent: String) {
-    let (tx, rx) = oneshot::channel();
-    let req_len = req.len();
-    println!("Checking {} links for dead links...", req_len);
-    let work = stream::iter_ok(req)
-        .map(move |url| make_request(url, show_ok, user_agent.clone()))
-        .buffer_unordered(parallel_requests)
-        .fold(0, |count, res| Ok(count + res))
-        .then(|result| {
-            let _ = tx.send(result);
-            Ok::<(), ()>(())
-        });
-    tokio::run(work);
-    if let Ok(count) = rx.wait().unwrap() {
-        println!("Got {}/{} valid links", count, req_len);
-    } else {
-        eprintln!("Error fetching links.");
-    }
-}
-
-fn main() {
-    let app = make_app();
-    let config = match get_matches_or_fail(app.clone()) {
-        Ok(c) => c,
+#[tokio::main]
+async fn main() -> Result<(), RLinksError> {
+    let mut app = make_app();
+    match get_matches_or_fail(app.clone()) {
         Err(e) => {
             println!("{}", e);
-            return;
+            app.print_help().unwrap()
         }
-    };
-    match app.get_matches().value_of("URL") {
-        Some(e) => {
-            get_links_for_website(e.to_owned())
-                .map(|f| fetch(f, config.n_par, config.show_ok, config.user_agent))
-                .map_err(|err| println!("{:?}", err))
-                .unwrap();
-        }
-        // If there is no input argument
-        _ => {
-            make_app().print_help().unwrap();
-            println!();
+        Ok(config) => {
+            check_links(config).await?;
         }
     }
+    Ok(())
+}
+
+async fn check_links(config: Config) -> Result<(), RLinksError> {
+    let client = get_client(Duration::from_secs(config.timeout));
+    let url = add_http(&config.url)?;
+    let links = get_links_from_website(&client, &config.user_agent, &url).await?;
+    make_multiple_requests(links, config.n_par, &client, &config.user_agent).await;
+    Ok(())
 }

@@ -1,23 +1,32 @@
 use clap::{App, Arg};
 
+use crate::error::RLinksError;
+
+const TIMEOUT_SECONDS: &str = "10";
 pub const DEFAULT_PAR_REQ: &str = "10";
 pub const RLINKS_USER_AGENT: &str =
-    "Mozilla/5.0 (compatible; Rlinks/0.3; +https://github.com/jlricon/rlinks/)";
-
+    "Mozilla/5.0 (compatible; Rlinks/0.5; +https://github.com/jlricon/rlinks/)";
+#[derive(Debug)]
 pub struct Config {
     pub n_par: usize,
     pub user_agent: String,
     pub show_ok: bool,
+    pub timeout: u64,
+    pub url: String,
 }
-pub fn get_matches_or_fail(app: App) -> Result<Config, clap::Error> {
+pub fn get_matches_or_fail(app: App) -> Result<Config, RLinksError> {
     let matches = app.get_matches();
     let n_par = value_t!(matches.value_of("n_par"), usize)?;
     let user_agent = value_t!(matches.value_of("user_agent"), String)?;
     let show_ok = matches.is_present("show_ok");
+    let timeout = value_t!(matches.value_of("timeout"), u64)?;
+    let url = value_t!(matches.value_of("URL"), String)?;
     Ok(Config {
         n_par,
         user_agent,
         show_ok,
+        timeout,
+        url,
     })
 }
 pub fn make_app<'a, 'b>() -> App<'a, 'b> {
@@ -36,7 +45,7 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                 .long("n_par")
                 .value_name("N_PAR")
                 // Keep this in sync with DEFAULT_PAR_REQ
-                .help("Number of parallel requests")
+                .help("Number of parallel requests per domain")
                 .default_value(DEFAULT_PAR_REQ)
                 .takes_value(true),
         )
@@ -53,5 +62,13 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                 .takes_value(true)
                 .help("Choose your own custom user agent string")
                 .default_value(RLINKS_USER_AGENT),
+        )
+        .arg(
+            Arg::with_name("timeout")
+                .short("t")
+                .long("timeout")
+                .takes_value(true)
+                .help("Request timeout")
+                .default_value(TIMEOUT_SECONDS),
         )
 }

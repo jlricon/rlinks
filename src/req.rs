@@ -1,127 +1,175 @@
-use std::collections::HashSet;
-use std::time::Duration;
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
+use std::iter::FromIterator;
 
-use select::document::Document;
-use select::predicate::Name;
+use futures::{stream, StreamExt, TryFutureExt};
+use http::{header::USER_AGENT, StatusCode};
+use isahc::{
+    Body,
+    config::RedirectPolicy,
+    prelude::{HttpClient, Request, Response},
+};
+use select::{document::Document, predicate::Name};
+use url::{Host, Url};
 
-use crate::cli::RLINKS_USER_AGENT;
-use crate::error::RLinksError;
-use crate::text::ColorsExt;
-use crate::text::{print_error, print_response};
-use crate::url_fix::{add_http, fix_malformed_url, get_url_root};
-use reqwest::header::USER_AGENT;
-use reqwest::r#async::Client;
-use reqwest::r#async::Response;
-use reqwest::{Error, StatusCode, Url};
-use reqwest::{Response as SyncResponse,Client as SyncClient};
+use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
 
-const TIMEOUT_SECONDS: u64 = 30;
-
-pub fn is_valid_status_code(x: StatusCode) -> bool {
-    x.is_success() | x.is_redirection()
+#[derive(Debug)]
+enum StatusCodeKind {
+    Valid(StatusCode),
+    MethodNotAllowed(StatusCode),
+    Fail(StatusCode),
+}
+fn get_status_code_kind(x: StatusCode) -> StatusCodeKind {
+    match x {
+        x if x.is_success() | x.is_redirection() => StatusCodeKind::Valid(x),
+        x if x == StatusCode::METHOD_NOT_ALLOWED => StatusCodeKind::MethodNotAllowed(x),
+        x => StatusCodeKind::Fail(x),
+    }
 }
 
-#[derive(PartialEq, Debug)]
 pub enum RequestType {
     GET,
     HEAD,
 }
-
-pub fn get_client() -> Client {
-    Client::builder()
-        .danger_accept_invalid_certs(true)
-        .cookie_store(true)
-        .timeout(Duration::from_secs(TIMEOUT_SECONDS))
+pub fn get_client(timeout: Duration) -> HttpClient {
+    HttpClient::builder()
+        .timeout(timeout)
+        .redirect_policy(RedirectPolicy::Follow)
+        //                .cookies()
         .build()
         .unwrap()
 }
-pub fn get_client_sync() -> SyncClient {
-    SyncClient::builder()
-        .danger_accept_invalid_certs(true)
-        .cookie_store(true)
-        .timeout(Duration::from_secs(TIMEOUT_SECONDS))
-        .build()
-        .unwrap()
+async fn request_with_header(
+    client: &HttpClient,
+    user_agent: &str,
+    request_type: RequestType,
+    url: &Url,
+) -> Result<Response<Body>, RLinksError> {
+    let req = match request_type {
+        RequestType::HEAD => Request::head(url.clone().into_string()),
+        RequestType::GET => Request::get(url.clone().into_string()),
+    }
+    .header(USER_AGENT, user_agent)
+    .body(())
+    // This unwrap is safe, we are merely building the request
+    .unwrap();
+    client
+        .send_async(req)
+        .map_err(RLinksError::RequestError)
+        .await
 }
+type HostHashMap = HashMap<Host, HashSet<Url>>;
+/// Returns a hashmap mapping from root domains to all urls that are related to those domains
+/// For example nintil.com :[nintil.com/a,nintil.com/b]
+/// This is so that we can then turn each into streams and set individual rate limits
+pub async fn get_links_from_website(
+    client: &HttpClient,
+    user_agent: &str,
+    base_url: &Url,
+) -> Result<HostHashMap, RLinksError> {
+    let response = request_with_header(client, user_agent, RequestType::GET, base_url).await?;
 
+    match get_status_code_kind(response.status()) {
+        StatusCodeKind::Valid(_) => (),
+        _ => return Err(RLinksError::StatusCodeError(response.status())),
+    }
 
-fn get_sync_response(url: Url) -> Result<SyncResponse, RLinksError> {
-    get_client_sync()
-        .get(url)
-        .header(USER_AGENT, RLINKS_USER_AGENT)
-        .send().map_err(|e|e.into())
-        
-}
-
-pub fn get_links_for_website(url_string: String) -> Result<HashSet<Url>, RLinksError> {
-    let fixed_url = Url::parse(&add_http(&url_string));
-    let fixed_url_string: String = match &fixed_url {
-        Ok(e) => format!("http://{}/", get_url_root(e)),
-        Err(_) => "".to_owned(),
-    };
-    let links = fixed_url.map(|url| {
-        get_sync_response(url)
-            .map(move |mut doc| {
-                if is_valid_status_code(doc.status()) {
-                    Document::from(doc.text().unwrap().as_str())
-                        .find(Name("a"))
-                        .filter_map(|n| n.attr("href"))
-                        .filter_map(|x| match fix_malformed_url(x, &fixed_url_string) {
-                            Ok(e) => Some(e),
-                            Err(_) => None,
-                        })
-                        .collect()
-                } else {
-                    let err = format!("Could not reach website {}: {}", url_string, doc.status());
-                    print_error(err);
-                    HashSet::new()
-                }
-            })
-            .map_err(|e| println!("{:?}", e))
+    let all_links: Vec<Result<Url, RLinksError>> =
+    // Unwrapping is safe here as the response has been validated
+        Document::from(response.into_body().text().unwrap().as_str())
+            .find(Name("a"))
+            .filter_map(|n| n.attr("href"))
+            .map(|r| fix_malformed_url(r, base_url))
+            .collect();
+    // We now split the urls by domain
+    // TODO: Fix this to avoid having to do mutation. Because A E S T H E T I C S
+    let mut hash_map: HashMap<Host, HashSet<Url>> = HashMap::new();
+    // This valid list links can contain duplicates
+    let valid_links: Vec<&Url> = all_links
+        .iter()
+        .filter_map(|url| match url {
+            Err(e) => {
+                println!("{}", e);
+                None
+            }
+            Ok(url) => Some(url),
+        })
+        .collect();
+    let valid_links_len = valid_links.len();
+    let unique_valid_links: HashSet<&Url> = HashSet::from_iter(valid_links);
+    println!(
+        "Got {}/{} initial valid links from {} out of which {} are unique",
+        valid_links_len,
+        all_links.len(),
+        base_url,
+        unique_valid_links.len()
+    );
+    // This unwrap is safe, every URL has a host
+    unique_valid_links.into_iter().for_each(|url| {
+        hash_map
+            .entry(url.host().unwrap().to_owned())
+            .or_insert_with(HashSet::new)
+            .insert(url.to_owned());
     });
-
-    match links {
-        Ok(e) => match e {
-            Ok(e) => Ok(e),
-            Err(_) => Err(RLinksError::RequestError),
-        },
-        Err(e) => {
-            println!("{:?}", e);
-            Err(RLinksError::UrlParseError(e))
-        }
-    }
+    //    let fake: HashSet<Url> = vec![Url::parse("https://www.understood.org/en/school-learning/learning-at-home/encouraging-reading-writing/6-strategies-to-teach-kids-self-regulation-in-writing").unwrap()]
+    //        .into_iter()
+    //        .collect();
+    //    let mut fake2: HashMap<url::Host, HashSet<Url>> = HashMap::new();
+    //    fake2.insert(url::Host::parse("o.com").unwrap(), fake);
+    //    Ok(fake2)
+    Ok(hash_map)
 }
-
-pub fn handle_response(
-    response: Result<Response, Error>,
-    show_ok: bool,
-    method: RequestType,
-) -> Result<(), ()> {
-    match response {
-        Ok(x) => {
-            if is_valid_status_code(x.status()) {
-                if show_ok {
-                    print_response(x, method);
+/// Request a url trying with both HEAD and then GET
+async fn is_reachable_url(
+    client: &HttpClient,
+    user_agent: &str,
+    url: &Url,
+) -> Result<StatusCode, RLinksError> {
+    let response = request_with_header(client, user_agent, RequestType::HEAD, url).await?;
+    match get_status_code_kind(response.status()) {
+        StatusCodeKind::Valid(_) => Ok(response.status()),
+        StatusCodeKind::MethodNotAllowed(_) => {
+            match get_status_code_kind(
+                request_with_header(client, user_agent, RequestType::GET, url)
+                    .await?
+                    .status(),
+            ) {
+                StatusCodeKind::Valid(e) => Ok(e),
+                StatusCodeKind::Fail(e) | StatusCodeKind::MethodNotAllowed(e) => {
+                    Err(RLinksError::StatusCodeError(e))
                 }
-                Ok(())
-            } else {
-                if method == RequestType::GET {
-                    print_response(x, method);
-                }
-                Err(())
             }
         }
-        Err(e) => {
-            let err_msg = format!("{}", e);
-            if err_msg.contains("Infinite redirect loop") {
-                println!("{}", err_msg.bold_green());
-                Ok(())
-            } else {
-                if method == RequestType::GET {
-                    print_error(e);
-                }
-                Err(())
-            }
-        }
+        StatusCodeKind::Fail(e) => Err(RLinksError::StatusCodeError(e)),
     }
+    .map(|response| {
+        format!("Success for {} ({})", url, response).print_in_green();
+        response
+    })
+    .map_err(|err| {
+        format!("Failure for {} ({})", url, err).print_in_red();
+        err
+    })
+}
+type VectorOfResponses = Vec<Result<StatusCode, RLinksError>>;
+/// Given a hashmap of domains:urls, make each set of urls into stream, then merge everything into
+/// One big stream, introduce buffering per sub-stream to avoid hammering a domain with requests
+pub async fn make_multiple_requests(
+    hash_map: HostHashMap,
+    max_domain_concurrency: usize,
+    client: &HttpClient,
+    user_agent: &str,
+) -> VectorOfResponses {
+    let stream_of_streams = hash_map.values().into_iter().map(|values| {
+        stream::iter(values.iter())
+            .map(|url| {
+                is_reachable_url(client, user_agent, url)
+                //                    .map_err(|err| futures::future::ok(Response::new(Body::empty())))
+            })
+            .buffer_unordered(max_domain_concurrency)
+    });
+    stream::select_all(stream_of_streams).collect().await
 }
