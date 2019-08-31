@@ -14,9 +14,9 @@ impl ColorsExt for str {
         self.bold().green()
     }
     fn print_in_green(self: &str) {
-        println!("{}", format!("{}", self).bold_green());
+        println!("{}", self.bold_green());
     }
     fn print_in_red(self: &str) {
-        println!("{}", format!("{}", self).bold_red());
+        println!("{}", self.bold_red());
     }
 }

@@ -13,35 +13,17 @@ pub fn add_http(url_string: &str) -> Result<Url, RLinksError> {
 }
 /// This fixes a relative link to a potential URL
 pub fn fix_malformed_url(x: &str, base_url: &Url) -> Result<Url, RLinksError> {
-    let fixed_url = if x.starts_with("//") {
-        Result::Ok(format!("http://{}", &x[2..]))
-    } else if x.starts_with('/') {
-        Result::Ok(format!("{}{}", base_url.to_string(), &x[1..]))
-    } else if x.starts_with("./") {
-        Result::Ok(format!("{}{}", base_url.to_string(), &x[2..]))
-    } else if x.starts_with("http") {
-        Result::Ok(x.to_owned())
-    } else if x.starts_with('#') {
-        Result::Ok(format! {"{}{}",base_url.to_string(),&x})
-    } else {
-        Result::Err(RLinksError::MalformedUrl(x.to_string()))
-    };
-    match fixed_url {
-        Ok(url) => Ok(Url::parse(&url)?),
-        Err(e) => Err(e),
+    match base_url.join(x) {
+        Ok(url) => Ok(url),
+        Err(e) => Err(RLinksError::UrlParseError(e)),
     }
 }
-//pub fn get_url_root(url: &Url) -> &str {
-//    url.host_str().unwrap()
-//}
+
 #[cfg(test)]
 mod tests {
     use url::Url;
 
-    use crate::{
-        error::RLinksError,
-        url_fix::{add_http, fix_malformed_url},
-    };
+    use crate::url_fix::{add_http, fix_malformed_url};
 
     #[test]
     fn test_add_http() {
@@ -76,7 +58,7 @@ mod tests {
             fix_malformed_url("//test2.com", &base_url)
                 .unwrap()
                 .to_string(),
-            "http://test2.com/".to_owned()
+            "https://test2.com/".to_owned()
         );
         assert_eq!(
             fix_malformed_url("/subsite", &base_url)
@@ -84,12 +66,14 @@ mod tests {
                 .to_string(),
             "https://test.com/subsite".to_owned()
         );
-        assert!(match (
-            fix_malformed_url("blah", &base_url).unwrap_err(),
-            RLinksError::MalformedUrl("blah".to_owned())
-        ) {
-            (RLinksError::MalformedUrl(e1), RLinksError::MalformedUrl(e2)) => e1 == e2,
-            _ => false,
-        });
+        assert_eq!(
+            fix_malformed_url(
+                "/wiki/Phoney_War",
+                &Url::parse("https://en.wikipedia.org/wiki/World_War_II").unwrap()
+            )
+            .unwrap()
+            .to_string(),
+            "https://en.wikipedia.org/wiki/Phoney_War"
+        );
     }
 }

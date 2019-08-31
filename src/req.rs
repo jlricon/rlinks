@@ -1,8 +1,8 @@
 use std::{
     collections::{HashMap, HashSet},
+    iter::FromIterator,
     time::Duration,
 };
-use std::iter::FromIterator;
 
 use futures::{stream, StreamExt, TryFutureExt};
 use http::{header::USER_AGENT, StatusCode};
@@ -38,7 +38,7 @@ pub fn get_client(timeout: Duration) -> HttpClient {
     HttpClient::builder()
         .timeout(timeout)
         .redirect_policy(RedirectPolicy::Follow)
-        //                .cookies()
+        //                        .cookies()
         .build()
         .unwrap()
 }
@@ -127,6 +127,7 @@ async fn is_reachable_url(
     client: &HttpClient,
     user_agent: &str,
     url: &Url,
+    show_ok: bool,
 ) -> Result<StatusCode, RLinksError> {
     let response = request_with_header(client, user_agent, RequestType::HEAD, url).await?;
     match get_status_code_kind(response.status()) {
@@ -146,7 +147,9 @@ async fn is_reachable_url(
         StatusCodeKind::Fail(e) => Err(RLinksError::StatusCodeError(e)),
     }
     .map(|response| {
-        format!("Success for {} ({})", url, response).print_in_green();
+        if show_ok {
+            format!("Success for {} ({})", url, response).print_in_green();
+        }
         response
     })
     .map_err(|err| {
@@ -162,13 +165,11 @@ pub async fn make_multiple_requests(
     max_domain_concurrency: usize,
     client: &HttpClient,
     user_agent: &str,
+    show_ok: bool,
 ) -> VectorOfResponses {
-    let stream_of_streams = hash_map.values().into_iter().map(|values| {
+    let stream_of_streams = hash_map.values().map(|values| {
         stream::iter(values.iter())
-            .map(|url| {
-                is_reachable_url(client, user_agent, url)
-                //                    .map_err(|err| futures::future::ok(Response::new(Body::empty())))
-            })
+            .map(|url| is_reachable_url(client, user_agent, url, show_ok))
             .buffer_unordered(max_domain_concurrency)
     });
     stream::select_all(stream_of_streams).collect().await

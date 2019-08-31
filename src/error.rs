@@ -4,7 +4,6 @@ use http::StatusCode;
 
 #[derive(Debug)]
 pub enum RLinksError {
-    MalformedUrl(String),
     UrlParseError(url::ParseError),
     RequestError(isahc::Error),
     ArgumentParsingError(clap::Error),
@@ -29,13 +28,12 @@ impl From<clap::Error> for RLinksError {
 impl Display for RLinksError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), FmtErr> {
         match self {
-            &RLinksError::RequestError(ref err) => err.fmt(f),
-            &RLinksError::UrlParseError(ref err) => err.fmt(f),
-            &RLinksError::ArgumentParsingError(ref err) => err.fmt(f),
-            &RLinksError::StatusCodeError(ref err) => {
+            RLinksError::RequestError(ref err) => err.fmt(f),
+            RLinksError::UrlParseError(ref err) => err.fmt(f),
+            RLinksError::ArgumentParsingError(ref err) => err.fmt(f),
+            RLinksError::StatusCodeError(ref err) => {
                 f.write_str(&format!("Status code error: {}", err))
             }
-            &RLinksError::MalformedUrl(ref err) => f.write_str(&format!("Malformed Url: {}", err)),
         }
     }
 }

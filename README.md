@@ -1,14 +1,17 @@
 # rlinks
 
-[![Crates.io](https://img.shields.io/crates/v/rlinks.svg)](https://crates.io/crates/rlinks) [![Crates.io](https://img.shields.io/crates/d/rlinks.svg)](https://crates.io/crates/rlinks) [![license](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/jlricon/rlinks/blob/master/LICENSE)![https://travis-ci.com/jlricon/rlinks](https://travis-ci.com/jlricon/rlinks.svg?branch=master)
+[![Crates.io](https://img.shields.io/crates/v/rlinks.svg)](https://crates.io/crates/rlinks)
+[![Crates.io](https://img.shields.io/crates/d/rlinks.svg)](https://crates.io/crates/rlinks)
+[![license](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/jlricon/rlinks/blob/master/LICENSE)
+[![Travis](https://travis-ci.com/jlricon/rlinks.svg?branch=master)](https://travis-ci.com/jlricon/rlinks)
 
-Rusty Links -rlinks- is a dead dlink checker
+Rusty Links -rlinks- is a deadd links checker
 
 NOTE: CAN ONLY BE COMPILED WITH RUST NIGHTLY!
 ## Usage
 
 ```
-Rusty Links 0.5.0
+Rusty Links 0.5.1
 Jose Luis Ricon <jose@ricon.xyz>
 Finds dead links in websites
 
@@ -21,7 +24,10 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -p, --n_par <N_PAR>    Number of parallel requests (Default 100)
+    -p, --n_par <N_PAR>              Number of parallel requests per domain [default: 4]
+    -t, --timeout <timeout>          Request timeout [default: 10]
+    -u, --user_agent <user_agent>    Choose your own custom user agent string [default: Mozilla/5.0 (compatible;
+                                     Rlinks/0.5; +https://github.com/jlricon/rlinks/)]
 
 ARGS:
     <URL>    URL to check links for (e.g. http://www.google.com)
@@ -30,11 +36,11 @@ ARGS:
 
 ## Benchmarks
 
-I tested this against [this](https://nintil.com/this-review-is-not-about-reviewing-the-elephant-in-the-brain/) long article with over a hundred links. linkchecker was run with `linkchecker --no-robots -r1 --check-extern https://nintil.com/this-review-is-not-about-reviewing-the-elephant-in-the-brain/`
+I tested this against [this](https://nintil.com/this-review-is-not-about-reviewing-the-elephant-in-the-brain/) 
+long article with over a hundred links. linkchecker was run with
+ `linkchecker --no-robots -r1 --check-extern https://nintil.com/this-review-is-not-about-reviewing-the-elephant-in-the-brain/`
 
 | Program     | Parallelism | Time    |
 | ----------- | ----------- | ------- |
-| rlinks      | 10          | 9.22 s  |
-| rlinks      | 100         | 3.976 s |
-| linkchecker | 10          | 17.723  |
-| linkchecker | 100         | 16.249  |
+| rlinks      | 4 (requests per domain, default) | 12.4 s  |
+| linkchecker | 10 (threads, default)| 16.6  |
