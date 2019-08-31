@@ -4,6 +4,7 @@
 
 Rusty Links -rlinks- is a dead dlink checker
 
+NOTE: CAN ONLY BE COMPILED WITH RUST NIGHTLY!
 ## Usage
 
 ```
