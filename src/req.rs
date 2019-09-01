@@ -7,7 +7,7 @@ use std::{
 use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
 use futures::{stream, StreamExt, TryFutureExt};
 use http::{header::USER_AGENT, StatusCode};
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 use isahc::{
     config::RedirectPolicy,
     prelude::{HttpClient, Request, Response},
@@ -177,6 +177,7 @@ async fn is_reachable_url(
     user_agent: &str,
     url: &Url,
     show_ok: bool,
+    pbar: &ProgressBar,
 ) -> StatusCode {
     let response = request_with_header(client, user_agent, RequestType::HEAD, url)
         .await
@@ -200,12 +201,16 @@ async fn is_reachable_url(
     }
     .map(|response| {
         if show_ok {
-            format!("Success for {} ({})", url, response).print_in_green();
+            pbar.println(
+                format!("Success for {} ({})", url, response)
+                    .bold_green()
+                    .to_string(),
+            );
         }
         response
     })
     .map_err(|err| {
-        format!("{}", err).print_in_red();
+        pbar.println(format!("{}", err).bold_red().to_string());
         err
     });
     match r {
@@ -225,11 +230,17 @@ pub async fn make_multiple_requests(
     show_ok: bool,
 ) -> VectorOfResponses {
     let pbar = ProgressBar::new(links.link_count);
+    pbar.enable_steady_tick(1000);
+    pbar.set_style(
+        ProgressStyle::default_bar()
+            .template("ETA: [{eta_precise}] {bar:40} {pos:>7}/{len:7} {msg}"),
+    );
+
     let stream_of_streams = links.hash_map.values().map(|values| {
         stream::iter(values.iter())
             .map(|url| {
                 pbar.inc(1);
-                is_reachable_url(client, user_agent, url, show_ok)
+                is_reachable_url(client, user_agent, url, show_ok, &pbar)
             })
             .buffer_unordered(max_domain_concurrency)
     });
