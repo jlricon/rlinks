@@ -195,7 +195,7 @@ async fn is_reachable_url(
     match r {
         Ok(e) => e,
         // TODO: Find a better solution around this
-        Err(e) => StatusCode::NOT_FOUND,
+        Err(_) => StatusCode::NOT_FOUND,
     }
 }
 type VectorOfResponses = Vec<StatusCode>;
