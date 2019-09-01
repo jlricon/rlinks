@@ -1,6 +1,6 @@
 [package]
 name = "rlinks"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Jose Luis Ricon <jose@ricon.xyz>"]
 edition = "2018"
 license ="GPL-3.0-or-later"

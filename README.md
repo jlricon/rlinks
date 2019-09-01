@@ -11,7 +11,7 @@ NOTE: CAN ONLY BE COMPILED WITH RUST NIGHTLY!
 ## Usage
 
 ```
-Rusty Links 0.5.1
+Rusty Links 0.5.2
 Jose Luis Ricon <jose@ricon.xyz>
 Finds dead links in websites
 

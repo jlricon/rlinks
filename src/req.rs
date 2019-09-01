@@ -29,7 +29,7 @@ fn get_status_code_kind(x: StatusCode) -> StatusCodeKind {
         x => StatusCodeKind::Fail(x),
     }
 }
-
+#[derive(Debug)]
 pub enum RequestType {
     GET,
     HEAD,
@@ -40,6 +40,13 @@ pub fn get_client(timeout: Duration) -> HttpClient {
         .redirect_policy(RedirectPolicy::Follow)
         //                        .cookies()
         .build()
+        .unwrap()
+}
+// This generates a response with a timeout status so that we can make errors into response
+fn build_fake_response(status: StatusCode) -> Response<Body> {
+    Response::builder()
+        .status(status)
+        .body(Body::empty())
         .unwrap()
 }
 async fn request_with_header(
@@ -56,10 +63,29 @@ async fn request_with_header(
     .body(())
     // This unwrap is safe, we are merely building the request
     .unwrap();
-    client
+    match client
         .send_async(req)
         .map_err(RLinksError::RequestError)
         .await
+    {
+        Ok(e) => Ok(e),
+        // Timeouts become errors, but we want to make these not error just yet, so we make them into fake responses
+        Err(RLinksError::RequestError(isahc::Error::Timeout)) => {
+            Ok(build_fake_response(StatusCode::REQUEST_TIMEOUT))
+        }
+        Err(RLinksError::RequestError(isahc::Error::CouldntResolveHost)) => {
+            Ok(build_fake_response(StatusCode::NOT_FOUND))
+        }
+        Err(RLinksError::RequestError(isahc::Error::ConnectFailed)) => {
+            Ok(build_fake_response(StatusCode::NOT_FOUND))
+        }
+        // This function should not error, so we panic
+        Err(e) => {
+            println!("{}", url);
+            format!("Found unrecoverable error: {}", e).print_in_red();
+            panic!(e)
+        }
+    }
 }
 type HostHashMap = HashMap<Host, HashSet<Url>>;
 /// Returns a hashmap mapping from root domains to all urls that are related to those domains
@@ -70,11 +96,18 @@ pub async fn get_links_from_website(
     user_agent: &str,
     base_url: &Url,
 ) -> Result<HostHashMap, RLinksError> {
-    let response = request_with_header(client, user_agent, RequestType::GET, base_url).await?;
+    let response = request_with_header(client, user_agent, RequestType::GET, base_url)
+        .await
+        .unwrap();
 
     match get_status_code_kind(response.status()) {
         StatusCodeKind::Valid(_) => (),
-        _ => return Err(RLinksError::StatusCodeError(response.status())),
+        _ => {
+            return Err(RLinksError::StatusCodeError(
+                response.status(),
+                base_url.to_owned(),
+            ))
+        }
     }
 
     let all_links: Vec<Result<Url, RLinksError>> =
@@ -128,23 +161,26 @@ async fn is_reachable_url(
     user_agent: &str,
     url: &Url,
     show_ok: bool,
-) -> Result<StatusCode, RLinksError> {
-    let response = request_with_header(client, user_agent, RequestType::HEAD, url).await?;
-    match get_status_code_kind(response.status()) {
+) -> StatusCode {
+    let response = request_with_header(client, user_agent, RequestType::HEAD, url)
+        .await
+        .unwrap();
+    let r = match get_status_code_kind(response.status()) {
         StatusCodeKind::Valid(_) => Ok(response.status()),
         StatusCodeKind::MethodNotAllowed(_) => {
             match get_status_code_kind(
                 request_with_header(client, user_agent, RequestType::GET, url)
-                    .await?
+                    .await
+                    .unwrap()
                     .status(),
             ) {
                 StatusCodeKind::Valid(e) => Ok(e),
                 StatusCodeKind::Fail(e) | StatusCodeKind::MethodNotAllowed(e) => {
-                    Err(RLinksError::StatusCodeError(e))
+                    Err(RLinksError::StatusCodeError(e, url.to_owned()))
                 }
             }
         }
-        StatusCodeKind::Fail(e) => Err(RLinksError::StatusCodeError(e)),
+        StatusCodeKind::Fail(e) => Err(RLinksError::StatusCodeError(e, url.to_owned())),
     }
     .map(|response| {
         if show_ok {
@@ -153,11 +189,16 @@ async fn is_reachable_url(
         response
     })
     .map_err(|err| {
-        format!("Failure for {} ({})", url, err).print_in_red();
+        format!("{}", err).print_in_red();
         err
-    })
+    });
+    match r {
+        Ok(e) => e,
+        // TODO: Find a better solution around this
+        Err(e) => StatusCode::NOT_FOUND,
+    }
 }
-type VectorOfResponses = Vec<Result<StatusCode, RLinksError>>;
+type VectorOfResponses = Vec<StatusCode>;
 /// Given a hashmap of domains:urls, make each set of urls into stream, then merge everything into
 /// One big stream, introduce buffering per sub-stream to avoid hammering a domain with requests
 pub async fn make_multiple_requests(
@@ -173,4 +214,8 @@ pub async fn make_multiple_requests(
             .buffer_unordered(max_domain_concurrency)
     });
     stream::select_all(stream_of_streams).collect().await
+    //    let urls:Vec<&Url>=hash_map.values().flatten().collect();
+    //        stream::iter(urls.iter()).map(|url| is_reachable_url(client, user_agent, url, show_ok))
+    //        .buffer_unordered(3).collect()
+    //        .await
 }
