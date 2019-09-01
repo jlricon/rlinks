@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rlinks.svg)](https://crates.io/crates/rlinks)
 [![Crates.io](https://img.shields.io/crates/d/rlinks.svg)](https://crates.io/crates/rlinks)
 [![license](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/jlricon/rlinks/blob/master/LICENSE)
-[![Travis](https://travis-ci.com/jlricon/rlinks.svg?branch=master)](https://travis-ci.com/jlricon/rlinks)
+[![Build](https://github.com/jlricon/rlinks/workflows/Build/badge.svg)](https://github.com/jlricon/rlinks)
 
 Rusty Links -rlinks- is a deadd links checker
 
