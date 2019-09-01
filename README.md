@@ -5,7 +5,7 @@
 [![license](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/jlricon/rlinks/blob/master/LICENSE)
 [![Build](https://github.com/jlricon/rlinks/workflows/Build/badge.svg)](https://github.com/jlricon/rlinks)
 
-Rusty Links -rlinks- is a deadd links checker
+Rusty Links -rlinks- is a dead links checker
 
 NOTE: CAN ONLY BE COMPILED WITH RUST NIGHTLY!
 ## Usage
