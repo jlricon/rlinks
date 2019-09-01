@@ -4,8 +4,10 @@ use std::{
     time::Duration,
 };
 
+use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
 use futures::{stream, StreamExt, TryFutureExt};
 use http::{header::USER_AGENT, StatusCode};
+use indicatif::ProgressBar;
 use isahc::{
     config::RedirectPolicy,
     prelude::{HttpClient, Request, Response},
@@ -13,8 +15,6 @@ use isahc::{
 };
 use select::{document::Document, predicate::Name};
 use url::{Host, Url};
-
-use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
 
 #[derive(Debug)]
 enum StatusCodeKind {
@@ -88,6 +88,11 @@ async fn request_with_header(
     }
 }
 type HostHashMap = HashMap<Host, HashSet<Url>>;
+pub struct Links {
+    pub hash_map: HostHashMap,
+    pub link_count: u64,
+}
+
 /// Returns a hashmap mapping from root domains to all urls that are related to those domains
 /// For example nintil.com :[nintil.com/a,nintil.com/b]
 /// This is so that we can then turn each into streams and set individual rate limits
@@ -95,7 +100,7 @@ pub async fn get_links_from_website(
     client: &HttpClient,
     user_agent: &str,
     base_url: &Url,
-) -> Result<HostHashMap, RLinksError> {
+) -> Result<Links, RLinksError> {
     let response = request_with_header(client, user_agent, RequestType::GET, base_url)
         .await
         .unwrap();
@@ -128,17 +133,25 @@ pub async fn get_links_from_website(
                 println!("{}", e);
                 None
             }
-            Ok(url) => Some(url),
+            Ok(url) => {
+                // If there is no host, it's probably a fake link like javascript:void(0)
+                if url.has_host() {
+                    Some(url)
+                } else {
+                    None
+                }
+            }
         })
         .collect();
     let valid_links_len = valid_links.len();
     let unique_valid_links: HashSet<&Url> = HashSet::from_iter(valid_links);
+    let unique_valid_links_len = unique_valid_links.len();
     println!(
         "Got {}/{} initial valid links from {} out of which {} are unique",
         valid_links_len,
         all_links.len(),
         base_url,
-        unique_valid_links.len()
+        unique_valid_links_len
     );
     // This unwrap is safe, every URL has a host
     unique_valid_links.into_iter().for_each(|url| {
@@ -153,7 +166,10 @@ pub async fn get_links_from_website(
     //    let mut fake2: HashMap<url::Host, HashSet<Url>> = HashMap::new();
     //    fake2.insert(url::Host::parse("o.com").unwrap(), fake);
     //    Ok(fake2)
-    Ok(hash_map)
+    Ok(Links {
+        hash_map,
+        link_count: unique_valid_links_len as u64,
+    })
 }
 /// Request a url trying with both HEAD and then GET
 async fn is_reachable_url(
@@ -202,18 +218,24 @@ type VectorOfResponses = Vec<StatusCode>;
 /// Given a hashmap of domains:urls, make each set of urls into stream, then merge everything into
 /// One big stream, introduce buffering per sub-stream to avoid hammering a domain with requests
 pub async fn make_multiple_requests(
-    hash_map: HostHashMap,
+    links: Links,
     max_domain_concurrency: usize,
     client: &HttpClient,
     user_agent: &str,
     show_ok: bool,
 ) -> VectorOfResponses {
-    let stream_of_streams = hash_map.values().map(|values| {
+    let pbar = ProgressBar::new(links.link_count);
+    let stream_of_streams = links.hash_map.values().map(|values| {
         stream::iter(values.iter())
-            .map(|url| is_reachable_url(client, user_agent, url, show_ok))
+            .map(|url| {
+                pbar.inc(1);
+                is_reachable_url(client, user_agent, url, show_ok)
+            })
             .buffer_unordered(max_domain_concurrency)
     });
-    stream::select_all(stream_of_streams).collect().await
+    let outp = stream::select_all(stream_of_streams).collect().await;
+    pbar.finish();
+    outp
     //    let urls:Vec<&Url>=hash_map.values().flatten().collect();
     //        stream::iter(urls.iter()).map(|url| is_reachable_url(client, user_agent, url, show_ok))
     //        .buffer_unordered(3).collect()
