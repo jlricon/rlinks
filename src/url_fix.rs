@@ -13,8 +13,13 @@ pub fn add_http(url_string: &str) -> Result<Url, RLinksError> {
 }
 /// This fixes a relative link to a potential URL
 pub fn fix_malformed_url(x: &str, base_url: &Url) -> Result<Url, RLinksError> {
+    // Links that have fragments can be treated as the same link, as they don't affect checking
     match base_url.join(x) {
-        Ok(url) => Ok(url),
+        Ok(mut url) => {
+            url.set_fragment(None);
+            Ok(url)
+        }
+        // If there is a fragment, skip
         Err(e) => Err(RLinksError::UrlParseError(e)),
     }
 }

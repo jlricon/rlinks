@@ -36,6 +36,7 @@ impl Display for RLinksError {
                 "Could not reach {} (Status code: {})",
                 url, status
             )),
+            //            RLinksError::IgnoredUrl(msg) => f.write_str(&format!("Ignored url {}", msg)),
         }
     }
 }
