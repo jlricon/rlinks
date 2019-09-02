@@ -6,7 +6,7 @@ use std::{
 
 use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
 use futures::{stream, StreamExt, TryFutureExt};
-use http::{header::USER_AGENT, StatusCode};
+use http::{header::USER_AGENT, StatusCode, Version};
 use indicatif::{ProgressBar, ProgressStyle};
 use isahc::{
     config::RedirectPolicy,
@@ -39,7 +39,8 @@ pub fn get_client(timeout: Duration) -> HttpClient {
     HttpClient::builder()
         .timeout(timeout)
         .connect_timeout(timeout)
-        .redirect_policy(RedirectPolicy::Limit(10))
+        .preferred_http_version(Version::HTTP_11)
+        .redirect_policy(RedirectPolicy::Limit(20))
         //                        .cookies()
         .build()
         .unwrap()
@@ -72,6 +73,7 @@ async fn request_with_header(
         .await
     {
         Ok(e) => Ok(e),
+
         // Timeouts become errors, but we want to make these not error just yet, so we make them into fake responses
         Err(RLinksError::RequestError(isahc::Error::Timeout)) => {
             error!("[ERROR] Timeout for {}", url);
@@ -84,6 +86,10 @@ async fn request_with_header(
         Err(RLinksError::RequestError(isahc::Error::ConnectFailed)) => {
             error!("[ERROR] Connection failed for {}", url);
             Ok(build_fake_response(StatusCode::NOT_FOUND))
+        }
+        Err(RLinksError::RequestError(isahc::Error::TooManyRedirects)) => {
+            error!("[ERROR] Too many redirects for {}", url);
+            Ok(build_fake_response(StatusCode::MISDIRECTED_REQUEST))
         }
         // This function should not error, so we panic
         Err(e) => {
@@ -193,11 +199,12 @@ async fn is_reachable_url(
     show_ok: bool,
     pbar: &ProgressBar,
 ) -> StatusCode {
-    let response = request_with_header(client, user_agent, RequestType::HEAD, url)
+    let status = request_with_header(client, user_agent, RequestType::HEAD, url)
         .await
-        .unwrap();
-    let r = match get_status_code_kind(response.status()) {
-        StatusCodeKind::Valid(_) => Ok(response.status()),
+        .unwrap()
+        .status();
+    let r = match get_status_code_kind(status) {
+        StatusCodeKind::Valid(_) => Ok(status),
         StatusCodeKind::MethodNotAllowed(_) => {
             match get_status_code_kind(
                 request_with_header(client, user_agent, RequestType::GET, url)
