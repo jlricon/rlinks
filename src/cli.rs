@@ -2,7 +2,7 @@ use clap::{App, Arg};
 
 use crate::error::RLinksError;
 
-const TIMEOUT_SECONDS: &str = "60";
+const TIMEOUT_SECONDS: &str = "10";
 pub const DEFAULT_PAR_REQ: &str = "4";
 pub const RLINKS_USER_AGENT: &str =
     "Mozilla/5.0 (compatible; Rlinks/0.5; +https://github.com/jlricon/rlinks/)";

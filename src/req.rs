@@ -13,9 +13,9 @@ use isahc::{
     prelude::{HttpClient, Request, Response},
     Body,
 };
+
 use select::{document::Document, predicate::Name};
 use url::{Host, Url};
-
 #[derive(Debug)]
 enum StatusCodeKind {
     Valid(StatusCode),
@@ -35,9 +35,11 @@ pub enum RequestType {
     HEAD,
 }
 pub fn get_client(timeout: Duration) -> HttpClient {
+    debug!("Getting client");
     HttpClient::builder()
         .timeout(timeout)
-        .redirect_policy(RedirectPolicy::Follow)
+        .connect_timeout(timeout)
+        .redirect_policy(RedirectPolicy::Limit(10))
         //                        .cookies()
         .build()
         .unwrap()
@@ -60,9 +62,10 @@ async fn request_with_header(
         RequestType::GET => Request::get(url.clone().into_string()),
     }
     .header(USER_AGENT, user_agent)
-    .body(())
+    .body(Body::empty())
     // This unwrap is safe, we are merely building the request
     .unwrap();
+    debug!("Requesting {}", url);
     match client
         .send_async(req)
         .map_err(RLinksError::RequestError)
@@ -71,18 +74,20 @@ async fn request_with_header(
         Ok(e) => Ok(e),
         // Timeouts become errors, but we want to make these not error just yet, so we make them into fake responses
         Err(RLinksError::RequestError(isahc::Error::Timeout)) => {
+            error!("[ERROR] Timeout for {}", url);
             Ok(build_fake_response(StatusCode::REQUEST_TIMEOUT))
         }
         Err(RLinksError::RequestError(isahc::Error::CouldntResolveHost)) => {
+            error!("[ERROR] Could not resolve host for {}", url);
             Ok(build_fake_response(StatusCode::NOT_FOUND))
         }
         Err(RLinksError::RequestError(isahc::Error::ConnectFailed)) => {
+            error!("[ERROR] Connection failed for {}", url);
             Ok(build_fake_response(StatusCode::NOT_FOUND))
         }
         // This function should not error, so we panic
         Err(e) => {
-            println!("{}", url);
-            format!("Found unrecoverable error: {}", e).print_in_red();
+            error!("[ERROR] Found unrecoverable error: {} when accessing {}", e,url);
             panic!(e)
         }
     }
@@ -123,8 +128,6 @@ pub async fn get_links_from_website(
             .map(|r| fix_malformed_url(r, base_url))
             .collect();
     // We now split the urls by domain
-    // TODO: Fix this to avoid having to do mutation. Because A E S T H E T I C S
-    let mut hash_map: HashMap<Host, HashSet<Url>> = HashMap::new();
     // This valid list links can contain duplicates
     let valid_links: Vec<&Url> = all_links
         .iter()
@@ -154,12 +157,8 @@ pub async fn get_links_from_website(
         unique_valid_links_len
     );
     // This unwrap is safe, every URL has a host
-    unique_valid_links.into_iter().for_each(|url| {
-        hash_map
-            .entry(url.host().unwrap().to_owned())
-            .or_insert_with(HashSet::new)
-            .insert(url.to_owned());
-    });
+
+    let hash_map = get_unique_link_hashmap(unique_valid_links);
     //    let fake: HashSet<Url> = vec![Url::parse("https://www.understood.org/en/school-learning/learning-at-home/encouraging-reading-writing/6-strategies-to-teach-kids-self-regulation-in-writing").unwrap()]
     //        .into_iter()
     //        .collect();
@@ -171,6 +170,18 @@ pub async fn get_links_from_website(
         link_count: unique_valid_links_len as u64,
     })
 }
+
+fn get_unique_link_hashmap(unique_valid_links: HashSet<&Url>) -> HostHashMap {
+    let mut hash_map: HashMap<Host, HashSet<Url>> = HashMap::new();
+    unique_valid_links.into_iter().for_each(|url| {
+        hash_map
+            .entry(url.host().unwrap().to_owned())
+            .or_insert_with(HashSet::new)
+            .insert(url.to_owned());
+    });
+    hash_map
+}
+
 /// Request a url trying with both HEAD and then GET
 async fn is_reachable_url(
     client: &HttpClient,
@@ -213,6 +224,7 @@ async fn is_reachable_url(
         pbar.println(format!("{}", err).bold_red().to_string());
         err
     });
+    pbar.inc(1);
     match r {
         Ok(e) => e,
         // TODO: Find a better solution around this
@@ -230,25 +242,21 @@ pub async fn make_multiple_requests(
     show_ok: bool,
 ) -> VectorOfResponses {
     let pbar = ProgressBar::new(links.link_count);
-    pbar.enable_steady_tick(1000);
     pbar.set_style(
         ProgressStyle::default_bar()
             .template("ETA: [{eta_precise}] {bar:40} {pos:>7}/{len:7} {msg}"),
     );
 
+    pbar.enable_steady_tick(1000);
     let stream_of_streams = links.hash_map.values().map(|values| {
         stream::iter(values.iter())
-            .map(|url| {
-                pbar.inc(1);
-                is_reachable_url(client, user_agent, url, show_ok, &pbar)
-            })
+            .map(|url| is_reachable_url(client, user_agent, url, show_ok, &pbar))
             .buffer_unordered(max_domain_concurrency)
     });
     let outp = stream::select_all(stream_of_streams).collect().await;
     pbar.finish();
     outp
-    //    let urls:Vec<&Url>=hash_map.values().flatten().collect();
-    //        stream::iter(urls.iter()).map(|url| is_reachable_url(client, user_agent, url, show_ok))
-    //        .buffer_unordered(3).collect()
-    //        .await
+    //        let urls:Vec<&Url>=links.hash_map.values().flatten().collect();
+    //            stream::iter(urls.iter()).map(|url| is_reachable_url(client, user_agent, url, show_ok,&pbar))
+    //            .buffer_unordered(20).collect().await
 }

@@ -1,14 +1,15 @@
 #[macro_use]
 extern crate clap;
-
-use std::time::Duration;
-
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 use crate::{
     cli::{get_matches_or_fail, make_app, Config},
     error::RLinksError,
     req::{get_client, get_links_from_website, make_multiple_requests},
     url_fix::add_http,
 };
+use std::time::Duration;
 
 mod cli;
 mod error;
@@ -18,6 +19,7 @@ mod url_fix;
 
 #[tokio::main]
 async fn main() -> Result<(), RLinksError> {
+    env_logger::init();
     let mut app = make_app();
     match get_matches_or_fail(app.clone()) {
         Err(e) => {
