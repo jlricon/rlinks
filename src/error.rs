@@ -9,6 +9,7 @@ pub enum RLinksError {
     RequestError(isahc::Error),
     ArgumentParsingError(clap::Error),
     StatusCodeError(StatusCode, Url),
+    IgnoredPattern(String, String),
 }
 
 impl From<url::ParseError> for RLinksError {
@@ -36,7 +37,10 @@ impl Display for RLinksError {
                 "Could not reach {} (Status code: {})",
                 url, status
             )),
-            //            RLinksError::IgnoredUrl(msg) => f.write_str(&format!("Ignored url {}", msg)),
+            RLinksError::IgnoredPattern(url, pattern) => f.write_str(&format!(
+                "Ignored url {} because it matches {}",
+                url, pattern
+            )),
         }
     }
 }

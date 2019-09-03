@@ -5,8 +5,8 @@ use std::{
 };
 
 use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
-use futures::{stream, StreamExt, TryFutureExt};
-use http::{header::USER_AGENT, StatusCode, Version};
+use futures::{stream, FutureExt, StreamExt, TryFutureExt, TryStreamExt};
+use http::{header::USER_AGENT, StatusCode};
 use indicatif::{ProgressBar, ProgressStyle};
 use isahc::{
     config::RedirectPolicy,
@@ -39,8 +39,9 @@ pub fn get_client(timeout: Duration) -> HttpClient {
     HttpClient::builder()
         .timeout(timeout)
         .connect_timeout(timeout)
-        .preferred_http_version(Version::HTTP_11)
+        //        .preferred_http_version(Version::HTTP_11)
         .redirect_policy(RedirectPolicy::Limit(20))
+        .danger_allow_unsafe_ssl(true)
         //                        .cookies()
         .build()
         .unwrap()
@@ -128,14 +129,12 @@ pub async fn get_links_from_website(
             ))
         }
     }
-
-    let all_links: Vec<Result<Url, RLinksError>> =
-    // Unwrapping is safe here as the response has been validated
-        Document::from(response.into_body().text().unwrap().as_str())
-            .find(Name("a"))
-            .filter_map(|n| n.attr("href"))
-            .map(|r| fix_malformed_url(r, base_url))
-            .collect();
+    let body = Document::from(response.into_body().text().unwrap().as_str());
+    let href_links = get_href_links(base_url, &body).into_iter();
+    let img_links = get_img_links(base_url, &body).into_iter();
+    let all_links = href_links
+        .chain(img_links)
+        .collect::<Vec<Result<Url, RLinksError>>>();
     // We now split the urls by domain
     // This valid list links can contain duplicates
     let valid_links: Vec<&Url> = all_links
@@ -168,6 +167,7 @@ pub async fn get_links_from_website(
     // This unwrap is safe, every URL has a host
 
     let hash_map = get_unique_link_hashmap(unique_valid_links);
+    format!("Found {} domains", hash_map.len()).print_in_green();
     //    let fake: HashSet<Url> = vec![Url::parse("https://www.understood.org/en/school-learning/learning-at-home/encouraging-reading-writing/6-strategies-to-teach-kids-self-regulation-in-writing").unwrap()]
     //        .into_iter()
     //        .collect();
@@ -178,6 +178,21 @@ pub async fn get_links_from_website(
         hash_map,
         link_count: unique_valid_links_len as u64,
     })
+}
+
+fn get_href_links(base_url: &Url, body: &Document) -> Vec<Result<Url, RLinksError>> {
+    // Unwrapping is safe here as the response has been validated
+    body.find(Name("a"))
+        .filter_map(|n| n.attr("href"))
+        .map(|r| fix_malformed_url(r, base_url))
+        .collect()
+}
+fn get_img_links(base_url: &Url, body: &Document) -> Vec<Result<Url, RLinksError>> {
+    // Unwrapping is safe here as the response has been validated
+    body.find(Name("img"))
+        .filter_map(|n| n.attr("src"))
+        .map(|r| fix_malformed_url(r, base_url))
+        .collect()
 }
 
 fn get_unique_link_hashmap(unique_valid_links: HashSet<&Url>) -> HostHashMap {
@@ -258,15 +273,21 @@ pub async fn make_multiple_requests(
     );
 
     pbar.enable_steady_tick(1000);
-    let stream_of_streams = links.hash_map.values().map(|values| {
-        stream::iter(values.iter())
-            .map(|url| is_reachable_url(client, user_agent, url, show_ok, &pbar))
-            .buffer_unordered(max_domain_concurrency)
-    });
-    let outp = stream::select_all(stream_of_streams).collect().await;
-    pbar.finish();
-    outp
-    //        let urls:Vec<&Url>=links.hash_map.values().flatten().collect();
-    //            stream::iter(urls.iter()).map(|url| is_reachable_url(client, user_agent, url, show_ok,&pbar))
-    //            .buffer_unordered(20).collect().await
+    //    let stream_of_streams = links.hash_map.values().map(|values| {
+    //        stream::iter(values.iter())
+    //            .map(|url| is_reachable_url(client, user_agent, url, show_ok, &pbar))
+    //            .buffer_unordered(max_domain_concurrency)
+    //    });
+    //    let outp = stream::select_all(stream_of_streams)
+    //        .buffer_unordered(1)
+    //        .collect()
+    //        .await;
+    //    pbar.finish();
+    //    outp
+    let urls: Vec<&Url> = links.hash_map.values().flatten().collect();
+    stream::iter(urls.iter())
+        .map(|url| is_reachable_url(client, user_agent, url, show_ok, &pbar))
+        .buffer_unordered(1)
+        .collect()
+        .await
 }

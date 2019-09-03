@@ -17,7 +17,6 @@ status = "actively-developed"
 colored="1.8"
 clap="2"
 select="0.4"
-isahc="0.7"
 url="2"
 tokio="0.2.0-alpha.4"
 http="0.1"
@@ -25,6 +24,7 @@ futures-preview = { version = "=0.3.0-alpha.18", features = ["async-await","nigh
 indicatif="0.11"
 log = "0.4.8"
 env_logger = "0.6.2"
+reqwest = "0.9.20"
 [profile.dev]
 debug-assertions=true
 [profile.release]

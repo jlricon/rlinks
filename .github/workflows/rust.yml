@@ -12,20 +12,21 @@ jobs:
         rust: [nightly]
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Install Rust
-      uses: hecrj/setup-rust-action@v1
-      with:
-        rust-version: ${{ matrix.rust }}
+      - uses: actions/checkout@v1
+      - name: Install Rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: ${{ matrix.rust }}
 
-    - name: Check
-      run: cargo  check --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Deploy to crates.io
-      if: contains(github.ref,'master')
-      env:
-        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-      run: cargo publish
+      - name: Build
+        run: cargo  build --verbose
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Deploy to crates.io
+        if: contains(github.ref,'master')
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        #        It would be a waste to verify, we just built and tested
+        run: cargo publish --no-verify
 
 

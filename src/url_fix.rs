@@ -5,7 +5,7 @@ use crate::error::RLinksError;
 /// This adds http to a link if it does not start with http(s)
 pub fn add_http(url_string: &str) -> Result<Url, RLinksError> {
     let fixed_url = if !(url_string.starts_with("http://") | url_string.starts_with("https://")) {
-        format!("http://{}", url_string)
+        format!("https://{}", url_string)
     } else {
         url_string.to_owned()
     };
@@ -13,6 +13,13 @@ pub fn add_http(url_string: &str) -> Result<Url, RLinksError> {
 }
 /// This fixes a relative link to a potential URL
 pub fn fix_malformed_url(x: &str, base_url: &Url) -> Result<Url, RLinksError> {
+    // We can skip some patterns
+    if x.starts_with("irc://") {
+        return Err(RLinksError::IgnoredPattern(
+            "irc://".to_owned(),
+            x.to_owned(),
+        ));
+    }
     // Links that have fragments can be treated as the same link, as they don't affect checking
     match base_url.join(x) {
         Ok(mut url) => {
