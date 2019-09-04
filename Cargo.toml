@@ -1,6 +1,6 @@
 [package]
 name = "rlinks"
-version = "0.6.0"
+version = "0.6.1"
 
 authors = ["Jose Luis Ricon <jose@ricon.xyz>"]
 edition = "2018"
@@ -14,7 +14,6 @@ keywords=["links","url","async","check"]
 [badges.maintenance]
 status = "actively-developed"
 [dependencies]
-colored="1.8"
 clap="2"
 select="0.4"
 url="2"
@@ -25,6 +24,7 @@ indicatif="0.11"
 log = "0.4.8"
 env_logger = "0.6.2"
 isahc = { git = "https://github.com/sagebind/isahc",version="0.7.1" }
+console = "0.8.0"
 [profile.dev]
 debug-assertions=true
 [profile.release]

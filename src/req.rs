@@ -43,7 +43,7 @@ pub fn get_client(timeout: Duration) -> HttpClient {
         .preferred_http_version(Version::HTTP_11)
         .redirect_policy(RedirectPolicy::Limit(2))
         // TODO: Reenable when available in isahc
-//        .danger_allow_unsafe_ssl(true)
+        //        .danger_allow_unsafe_ssl(true)
         //                        .cookies()
         .build()
         .unwrap()
