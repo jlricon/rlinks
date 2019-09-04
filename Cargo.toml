@@ -1,6 +1,6 @@
 [package]
 name = "rlinks"
-version = "0.6"
+version = "0.6.0"
 
 authors = ["Jose Luis Ricon <jose@ricon.xyz>"]
 edition = "2018"
