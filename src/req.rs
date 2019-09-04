@@ -5,8 +5,8 @@ use std::{
 };
 
 use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
-use futures::{stream, FutureExt, StreamExt, TryFutureExt, TryStreamExt};
-use http::{header::USER_AGENT, StatusCode};
+use futures::{stream, StreamExt, TryFutureExt};
+use http::{header::USER_AGENT, StatusCode, Version};
 use indicatif::{ProgressBar, ProgressStyle};
 use isahc::{
     config::RedirectPolicy,
@@ -39,7 +39,8 @@ pub fn get_client(timeout: Duration) -> HttpClient {
     HttpClient::builder()
         .timeout(timeout)
         .connect_timeout(timeout)
-        //        .preferred_http_version(Version::HTTP_11)
+        // HTTP2 sometimes has issues
+        .preferred_http_version(Version::HTTP_11)
         .redirect_policy(RedirectPolicy::Limit(20))
         .danger_allow_unsafe_ssl(true)
         //                        .cookies()
@@ -103,6 +104,7 @@ async fn request_with_header(
     }
 }
 type HostHashMap = HashMap<Host, HashSet<Url>>;
+#[derive(Debug)]
 pub struct Links {
     pub hash_map: HostHashMap,
     pub link_count: u64,
@@ -115,6 +117,7 @@ pub async fn get_links_from_website(
     client: &HttpClient,
     user_agent: &str,
     base_url: &Url,
+    truncate_fragments: bool,
 ) -> Result<Links, RLinksError> {
     let response = request_with_header(client, user_agent, RequestType::GET, base_url)
         .await
@@ -134,7 +137,16 @@ pub async fn get_links_from_website(
     let img_links = get_img_links(base_url, &body).into_iter();
     let all_links = href_links
         .chain(img_links)
+        .map(|result| {
+            result.map(|mut url| {
+                if truncate_fragments {
+                    url.set_fragment(None)
+                };
+                url
+            })
+        })
         .collect::<Vec<Result<Url, RLinksError>>>();
+
     // We now split the urls by domain
     // This valid list links can contain duplicates
     let valid_links: Vec<&Url> = all_links
@@ -273,21 +285,18 @@ pub async fn make_multiple_requests(
     );
 
     pbar.enable_steady_tick(1000);
-    //    let stream_of_streams = links.hash_map.values().map(|values| {
-    //        stream::iter(values.iter())
-    //            .map(|url| is_reachable_url(client, user_agent, url, show_ok, &pbar))
-    //            .buffer_unordered(max_domain_concurrency)
-    //    });
-    //    let outp = stream::select_all(stream_of_streams)
-    //        .buffer_unordered(1)
+    let stream_of_streams = links.hash_map.values().map(|values| {
+        stream::iter(values.iter())
+            .map(|url| is_reachable_url(client, user_agent, url, show_ok, &pbar))
+            .buffer_unordered(max_domain_concurrency)
+    });
+    let outp = stream::select_all(stream_of_streams).collect().await;
+    pbar.finish();
+    outp
+    //    let urls: Vec<&Url> = links.hash_map.values().flatten().collect();
+    //    stream::iter(urls.iter())
+    //        .map(|url| is_reachable_url(client, user_agent, url, show_ok, &pbar))
+    //        .buffer_unordered(5)
     //        .collect()
-    //        .await;
-    //    pbar.finish();
-    //    outp
-    let urls: Vec<&Url> = links.hash_map.values().flatten().collect();
-    stream::iter(urls.iter())
-        .map(|url| is_reachable_url(client, user_agent, url, show_ok, &pbar))
-        .buffer_unordered(1)
-        .collect()
-        .await
+    //        .await
 }
