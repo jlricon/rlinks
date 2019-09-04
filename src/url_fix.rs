@@ -42,11 +42,11 @@ mod tests {
         );
         assert_eq!(
             add_http("test.com").unwrap(),
-            Url::parse("http://test.com/").unwrap()
+            Url::parse("https://test.com/").unwrap()
         );
         assert_eq!(
             add_http("www.test.com").unwrap(),
-            Url::parse("http://www.test.com/").unwrap()
+            Url::parse("https://www.test.com/").unwrap()
         );
     }
 
