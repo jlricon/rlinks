@@ -5,7 +5,7 @@ extern crate env_logger;
 extern crate log;
 
 use crate::{
-    cli::{get_matches, make_app, CommandConfig},
+    cli::{get_config, make_app, CommandConfig},
     error::RLinksError,
 };
 
@@ -19,7 +19,7 @@ mod url_fix;
 async fn main() -> Result<(), RLinksError> {
     env_logger::init();
     let app = make_app();
-    match get_matches(app) {
+    match get_config(app) {
         Err(e) => {
             println!("{}", e);
         }

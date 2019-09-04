@@ -1,4 +1,4 @@
-use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand};
 
 use crate::error::RLinksError;
 
@@ -26,30 +26,9 @@ pub struct DumpConfig {
     pub timeout: u64,
     pub output_file: String,
 }
-pub fn get_matches(app: App) -> Result<CommandConfig, RLinksError> {
-    let matches = app.get_matches();
-    // Check for subcommands
-    get_config(matches)
-    //.map_err(|e| {
-    //        println!("{}", e);
-    //        match matches.su {
-    //            Some(sb) => make_app().sub,
-    //            _ => {
-    //                println!("{}", e);
-    //                make_app().print_help().unwrap();
-    //                // Because print help ends up with a weird %
-    //                println!();
-    //            }
-    //        }
 
-    // Because print help ends up with a weird %
-    //        println!();
-    //        e
-    //    })
-}
-
-fn get_config(matches: ArgMatches) -> Result<CommandConfig, RLinksError> {
-    match matches.subcommand() {
+pub fn get_config(app: App) -> Result<CommandConfig, RLinksError> {
+    match app.get_matches().subcommand() {
         ("dump", Some(matches)) => Ok(CommandConfig::Dump(DumpConfig {
             url: value_t!(matches.value_of("URL"), String)?,
             user_agent: matches
@@ -90,7 +69,7 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
     App::new("Rusty Links")
         .version(crate_version!())
         .author("Jose Luis Ricon <jose@ricon.xyz>")
-        .about("Finds dead links in websites")
+        .about("RLinks finds dead links in websites, or dumps scraped links to a file")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommand(
             SubCommand::with_name("check")

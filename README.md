@@ -11,26 +11,21 @@ NOTE: CAN ONLY BE COMPILED WITH RUST NIGHTLY!
 ## Usage
 
 ```
-Rusty Links
+Rusty Links 0.6.0
 Jose Luis Ricon <jose@ricon.xyz>
-Finds dead links in websites
+RLinks finds dead links in websites, or dumps scraped links to a file
 
 USAGE:
-    Rusty Links [FLAGS] [OPTIONS] [URL]
+    rlinks <SUBCOMMAND>
 
 FLAGS:
     -h, --help       Prints help information
-    -s, --show_ok    Show links that are ok
     -V, --version    Prints version information
 
-OPTIONS:
-    -p, --n_par <N_PAR>              Number of parallel requests per domain [default: 4]
-    -t, --timeout <timeout>          Request timeout [default: 10]
-    -u, --user_agent <user_agent>    Choose your own custom user agent string [default: Mozilla/5.0 (compatible;
-                                     Rlinks/0.5; +https://github.com/jlricon/rlinks/)]
-
-ARGS:
-    <URL>    URL to check links for (e.g. http://www.google.com)
+SUBCOMMANDS:
+    check    Checks links
+    dump     Dump links
+    help     Prints this message or the help of the given subcommand(s)
 
 ```
 
@@ -42,5 +37,5 @@ long article with over a hundred links. linkchecker was run with
 
 | Program     | Parallelism | Time    |
 | ----------- | ----------- | ------- |
-| rlinks      | 4 (requests per domain, default) | 6.9  |
+| rlinks      | 4 (requests per domain, default) | 1.33  |
 | linkchecker | 10 (threads, default)| 14.9  |

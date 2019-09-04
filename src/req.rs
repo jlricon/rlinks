@@ -41,7 +41,7 @@ pub fn get_client(timeout: Duration) -> HttpClient {
         .connect_timeout(timeout)
         // HTTP2 sometimes has issues
         .preferred_http_version(Version::HTTP_11)
-        .redirect_policy(RedirectPolicy::Limit(20))
+        .redirect_policy(RedirectPolicy::Limit(2))
         .danger_allow_unsafe_ssl(true)
         //                        .cookies()
         .build()
