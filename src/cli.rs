@@ -3,8 +3,8 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use crate::error::RLinksError;
 
 const TIMEOUT_SECONDS: u64 = 10;
-pub const DEFAULT_PAR_REQ: usize = 4;
-pub const RLINKS_USER_AGENT: &str =
+const DEFAULT_PAR_REQ: usize = 2;
+const RLINKS_USER_AGENT: &str =
     "Mozilla/5.0 (compatible; Rlinks/0.5; +https://github.com/jlricon/rlinks/)";
 #[derive(Debug)]
 pub enum CommandConfig {

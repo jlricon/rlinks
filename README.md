@@ -37,5 +37,5 @@ long article with over a hundred links. linkchecker was run with
 
 | Program     | Parallelism | Time    |
 | ----------- | ----------- | ------- |
-| rlinks      | 4 (requests per domain, default) | 1.33  |
+| rlinks      | 2 (requests per domain, default) | 4  |
 | linkchecker | 10 (threads, default)| 14.9  |

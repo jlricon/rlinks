@@ -30,7 +30,7 @@ fn get_status_code_kind(x: StatusCode) -> StatusCodeKind {
     }
 }
 #[derive(Debug)]
-pub enum RequestType {
+enum RequestType {
     GET,
     HEAD,
 }
@@ -39,7 +39,7 @@ pub fn get_client(timeout: Duration) -> HttpClient {
     HttpClient::builder()
         .timeout(timeout)
         .connect_timeout(timeout)
-        .redirect_policy(RedirectPolicy::Limit(2))
+        .redirect_policy(RedirectPolicy::Limit(5))
         .danger_allow_unsafe_ssl(true)
         //                        .cookies()
         .build()
