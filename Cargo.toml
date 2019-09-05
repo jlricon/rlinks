@@ -1,6 +1,6 @@
 [package]
 name = "rlinks"
-version = "0.6.1"
+version = "0.6.2"
 
 authors = ["Jose Luis Ricon <jose@ricon.xyz>"]
 edition = "2018"
@@ -23,7 +23,7 @@ futures-preview = { version = "=0.3.0-alpha.18", features = ["async-await","nigh
 indicatif="0.11"
 log = "0.4.8"
 env_logger = "0.6.2"
-isahc = { git = "https://github.com/sagebind/isahc",version="0.7.1" }
+isahc = "0.7.2"
 console = "0.8.0"
 [profile.dev]
 debug-assertions=true

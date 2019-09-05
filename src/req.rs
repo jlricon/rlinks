@@ -6,7 +6,7 @@ use std::{
 
 use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
 use futures::{stream, StreamExt, TryFutureExt};
-use http::{header::USER_AGENT, StatusCode, Version};
+use http::{header::USER_AGENT, StatusCode};
 use indicatif::{ProgressBar, ProgressStyle};
 use isahc::{
     config::RedirectPolicy,
@@ -39,11 +39,8 @@ pub fn get_client(timeout: Duration) -> HttpClient {
     HttpClient::builder()
         .timeout(timeout)
         .connect_timeout(timeout)
-        // HTTP2 sometimes has issues
-        .preferred_http_version(Version::HTTP_11)
         .redirect_policy(RedirectPolicy::Limit(2))
-        // TODO: Reenable when available in isahc
-        //        .danger_allow_unsafe_ssl(true)
+        .danger_allow_unsafe_ssl(true)
         //                        .cookies()
         .build()
         .unwrap()
@@ -79,20 +76,24 @@ async fn request_with_header(
 
         // Timeouts become errors, but we want to make these not error just yet, so we make them into fake responses
         Err(RLinksError::RequestError(isahc::Error::Timeout)) => {
-            error!("[ERROR] Timeout for {}", url);
+            info!("[ERROR] Timeout for {}", url);
             Ok(build_fake_response(StatusCode::REQUEST_TIMEOUT))
         }
         Err(RLinksError::RequestError(isahc::Error::CouldntResolveHost)) => {
-            error!("[ERROR] Could not resolve host for {}", url);
+            info!("[ERROR] Could not resolve host for {}", url);
             Ok(build_fake_response(StatusCode::NOT_FOUND))
         }
         Err(RLinksError::RequestError(isahc::Error::ConnectFailed)) => {
-            error!("[ERROR] Connection failed for {}", url);
+            info!("[ERROR] Connection failed for {}", url);
             Ok(build_fake_response(StatusCode::NOT_FOUND))
         }
         Err(RLinksError::RequestError(isahc::Error::TooManyRedirects)) => {
-            error!("[ERROR] Too many redirects for {}", url);
+            info!("[ERROR] Too many redirects for {}", url);
             Ok(build_fake_response(StatusCode::MISDIRECTED_REQUEST))
+        }
+        Err(RLinksError::RequestError(isahc::Error::ResponseBodyError(e))) => {
+            info!("[ERROR] Response body error ({:?})for {}", e, url);
+            Ok(build_fake_response(StatusCode::NOT_FOUND))
         }
         // This function should not error, so we panic
         Err(e) => {
@@ -282,7 +283,7 @@ pub async fn make_multiple_requests(
     let pbar = ProgressBar::new(links.link_count);
     pbar.set_style(
         ProgressStyle::default_bar()
-            .template("ETA: [{eta_precise}] {bar:40} {pos:>7}/{len:7} {msg}"),
+            .template("[{elapsed_precise}] {bar:40} {pos:>7}/{len:7} {msg} ETA: [{eta_precise}]"),
     );
 
     pbar.enable_steady_tick(1000);

@@ -2,7 +2,6 @@ use std::fmt::{Display, Error as FmtErr, Formatter};
 
 use http::StatusCode;
 use url::Url;
-
 #[derive(Debug)]
 pub enum RLinksError {
     UrlParseError(url::ParseError),
