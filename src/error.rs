@@ -9,6 +9,7 @@ pub enum RLinksError {
     ArgumentParsingError(clap::Error),
     StatusCodeError(StatusCode, Url),
     IgnoredPattern(String, String),
+    RegexParsingError(regex::Error),
 }
 
 impl From<url::ParseError> for RLinksError {
@@ -26,6 +27,12 @@ impl From<clap::Error> for RLinksError {
         RLinksError::ArgumentParsingError(err)
     }
 }
+
+impl From<regex::Error> for RLinksError {
+    fn from(err: regex::Error) -> RLinksError {
+        RLinksError::RegexParsingError(err)
+    }
+}
 impl Display for RLinksError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), FmtErr> {
         match self {
@@ -40,6 +47,7 @@ impl Display for RLinksError {
                 "Ignored url {} because it matches {}",
                 url, pattern
             )),
+            RLinksError::RegexParsingError(ref err) => err.fmt(f),
         }
     }
 }

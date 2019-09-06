@@ -1,6 +1,7 @@
 use clap::{App, AppSettings, Arg, SubCommand};
 
 use crate::error::RLinksError;
+use regex::Regex;
 
 const TIMEOUT_SECONDS: u64 = 10;
 const DEFAULT_PAR_REQ: usize = 2;
@@ -18,6 +19,7 @@ pub struct BaseConfig {
     pub show_ok: bool,
     pub timeout: u64,
     pub url: String,
+    pub ignore_urls: Option<Regex>,
 }
 #[derive(Debug)]
 pub struct DumpConfig {
@@ -25,40 +27,44 @@ pub struct DumpConfig {
     pub user_agent: String,
     pub timeout: u64,
     pub output_file: String,
+    pub ignore_urls: Option<Regex>,
 }
 
 pub fn get_config(app: App) -> Result<CommandConfig, RLinksError> {
-    match app.get_matches().subcommand() {
-        ("dump", Some(matches)) => Ok(CommandConfig::Dump(DumpConfig {
-            url: value_t!(matches.value_of("URL"), String)?,
-            user_agent: matches
-                .value_of("user_agent")
-                .unwrap_or(RLINKS_USER_AGENT)
-                .to_string(),
-            timeout: matches
-                .value_of("timeout")
-                .map_or_else(|| TIMEOUT_SECONDS, |val| val.parse().unwrap()),
-            output_file: value_t!(matches.value_of("output"), String)?,
+    let matches = app.get_matches();
+    let subcommand_matches = matches.subcommand().1.unwrap();
+    let ignore_urls = subcommand_matches
+        .value_of("ignore_urls")
+        .map(|v| Regex::new(v).unwrap());
+    let url = value_t!(subcommand_matches.value_of("URL"), String)?;
+    let timeout = subcommand_matches
+        .value_of("timeout")
+        .map_or_else(|| TIMEOUT_SECONDS, |val| val.parse().unwrap());
+
+    let user_agent = subcommand_matches
+        .value_of("user_agent")
+        .unwrap_or(&RLINKS_USER_AGENT)
+        .to_owned();
+    match matches.subcommand_name().unwrap() {
+        "dump" => Ok(CommandConfig::Dump(DumpConfig {
+            url,
+            user_agent,
+            timeout,
+            output_file: value_t!(subcommand_matches.value_of("output"), String)?,
+            ignore_urls,
         })),
-        ("check", Some(matches)) => {
-            let n_par = matches
+        "check" => {
+            let n_par = subcommand_matches
                 .value_of("n_par")
-                .map_or_else(|| DEFAULT_PAR_REQ, |v| v.parse().unwrap());
-            let user_agent = matches
-                .value_of("user_agent")
-                .unwrap_or(&RLINKS_USER_AGENT)
-                .to_owned();
-            let show_ok = matches.is_present("show_ok");
-            let timeout = matches
-                .value_of("timeout")
-                .map_or_else(|| TIMEOUT_SECONDS, |val| val.parse().unwrap());
-            let url = value_t!(matches.value_of("URL"), String)?;
+                .map_or(DEFAULT_PAR_REQ, |v| v.parse().unwrap());
+
             Ok(CommandConfig::Base(BaseConfig {
                 n_par,
                 user_agent,
-                show_ok,
+                show_ok: subcommand_matches.is_present("show_ok"),
                 timeout,
                 url,
+                ignore_urls,
             }))
         }
         _ => unreachable!(),
@@ -84,7 +90,6 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                     Arg::with_name("n_par")
                         .short("p")
                         .long("n_par")
-                        .value_name("N_PAR")
                         .help("Number of parallel requests per domain")
                         .takes_value(true),
                 )
@@ -107,6 +112,13 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                         .long("timeout")
                         .takes_value(true)
                         .help("Request timeout"),
+                )
+                .arg(
+                    Arg::with_name("ignore_urls")
+                        .short("i")
+                        .long("ignore_urls")
+                        .takes_value(true)
+                        .help("Ignores certain patterns. Uses a single regex expression"),
                 ),
         )
         .subcommand(
@@ -138,6 +150,13 @@ pub fn make_app<'a, 'b>() -> App<'a, 'b> {
                         .long("timeout")
                         .takes_value(true)
                         .help("Request timeout"),
+                )
+                .arg(
+                    Arg::with_name("ignore_urls")
+                        .short("i")
+                        .long("ignore_urls")
+                        .takes_value(true)
+                        .help("Ignores certain patterns. Uses a single regex expression"),
                 ),
         )
 }

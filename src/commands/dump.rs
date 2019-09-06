@@ -10,7 +10,14 @@ pub async fn dump_links(config: DumpConfig) -> Result<(), RLinksError> {
     println!("{:?}", config);
     let client = get_client(Duration::from_secs(config.timeout));
     let url = add_http(&config.url)?;
-    let links = get_links_from_website(&client, &config.user_agent, &url, false).await?;
+    let links = get_links_from_website(
+        &client,
+        &config.user_agent,
+        &url,
+        false,
+        &config.ignore_urls,
+    )
+    .await?;
     let all_links = links
         .hash_map
         .values()

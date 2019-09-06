@@ -14,8 +14,10 @@ use isahc::{
     Body,
 };
 
+use regex::Regex;
 use select::{document::Document, predicate::Name};
 use url::{Host, Url};
+
 #[derive(Debug)]
 enum StatusCodeKind {
     Valid(StatusCode),
@@ -40,7 +42,7 @@ pub fn get_client(timeout: Duration) -> HttpClient {
         .timeout(timeout)
         .connect_timeout(timeout)
         .redirect_policy(RedirectPolicy::Limit(5))
-                .preferred_http_version(Version::HTTP_11)
+        .preferred_http_version(Version::HTTP_11)
         .danger_allow_unsafe_ssl(true)
         .cookies()
         .build()
@@ -121,6 +123,7 @@ pub async fn get_links_from_website(
     user_agent: &str,
     base_url: &Url,
     truncate_fragments: bool,
+    regex: &Option<Regex>,
 ) -> Result<Links, RLinksError> {
     let response = request_with_header(client, user_agent, RequestType::GET, base_url)
         .await
@@ -136,10 +139,15 @@ pub async fn get_links_from_website(
         }
     }
     let body = Document::from(response.into_body().text().unwrap().as_str());
-    let href_links = get_href_links(base_url, &body).into_iter();
-    let img_links = get_img_links(base_url, &body).into_iter();
-    let all_links = href_links
-        .chain(img_links)
+    let links_in_body: Vec<&str> = {
+        let href_links = get_href_links(&body).into_iter();
+        let img_links = get_img_links(&body).into_iter();
+        href_links.chain(img_links).collect()
+    };
+    let links_in_body_len = links_in_body.len();
+    let urls_in_body: Vec<Result<Url, RLinksError>> = links_in_body
+        .iter()
+        .map(|link| fix_malformed_url(link, base_url))
         .map(|result| {
             result.map(|mut url| {
                 if truncate_fragments {
@@ -148,11 +156,10 @@ pub async fn get_links_from_website(
                 url
             })
         })
-        .collect::<Vec<Result<Url, RLinksError>>>();
-
+        .collect();
     // We now split the urls by domain
     // This valid list links can contain duplicates
-    let valid_links: Vec<&Url> = all_links
+    let valid_urls: Vec<&Url> = urls_in_body
         .iter()
         .filter_map(|url| match url {
             Err(e) => {
@@ -169,44 +176,48 @@ pub async fn get_links_from_website(
             }
         })
         .collect();
-    let valid_links_len = valid_links.len();
-    let unique_valid_links: HashSet<&Url> = HashSet::from_iter(valid_links);
+    let valid_urls_len = valid_urls.len();
+    let regexed_links: Vec<&Url> = match regex {
+        Some(r) => valid_urls
+            .into_iter()
+            .filter_map(|link| match r.is_match(link.as_str()) {
+                true => None,
+                false => Some(link),
+            })
+            .collect(),
+        None => valid_urls,
+    };
+    let regexed_links_len = regexed_links.len();
+    dbg!(&regexed_links);
+
+    let unique_valid_links: HashSet<&Url> = HashSet::from_iter(regexed_links);
     let unique_valid_links_len = unique_valid_links.len();
+
     println!(
-        "Got {}/{} initial valid links from {} out of which {} are unique",
-        valid_links_len,
-        all_links.len(),
-        base_url,
-        unique_valid_links_len
+        "Got {} links parsed -> {} are valid -> {} meet regex -> {} unique urls",
+        links_in_body_len, valid_urls_len, regexed_links_len, unique_valid_links_len
     );
     // This unwrap is safe, every URL has a host
 
     let hash_map = get_unique_link_hashmap(unique_valid_links);
     format!("Found {} domains", hash_map.len()).print_in_green();
-    //    let fake: HashSet<Url> = vec![Url::parse("https://www.understood.org/en/school-learning/learning-at-home/encouraging-reading-writing/6-strategies-to-teach-kids-self-regulation-in-writing").unwrap()]
-    //        .into_iter()
-    //        .collect();
-    //    let mut fake2: HashMap<url::Host, HashSet<Url>> = HashMap::new();
-    //    fake2.insert(url::Host::parse("o.com").unwrap(), fake);
-    //    Ok(fake2)
+
     Ok(Links {
         hash_map,
         link_count: unique_valid_links_len as u64,
     })
 }
 
-fn get_href_links(base_url: &Url, body: &Document) -> Vec<Result<Url, RLinksError>> {
+fn get_href_links(body: &Document) -> Vec<&str> {
     // Unwrapping is safe here as the response has been validated
     body.find(Name("a"))
         .filter_map(|n| n.attr("href"))
-        .map(|r| fix_malformed_url(r, base_url))
         .collect()
 }
-fn get_img_links(base_url: &Url, body: &Document) -> Vec<Result<Url, RLinksError>> {
+fn get_img_links(body: &Document) -> Vec<&str> {
     // Unwrapping is safe here as the response has been validated
     body.find(Name("img"))
         .filter_map(|n| n.attr("src"))
-        .map(|r| fix_malformed_url(r, base_url))
         .collect()
 }
 
@@ -294,12 +305,7 @@ pub async fn make_multiple_requests(
             .buffer_unordered(max_domain_concurrency)
     });
     let outp = stream::select_all(stream_of_streams).collect().await;
-    pbar.finish();
+
+    pbar.finish_with_message("Finished");
     outp
-    //    let urls: Vec<&Url> = links.hash_map.values().flatten().collect();
-    //    stream::iter(urls.iter())
-    //        .map(|url| is_reachable_url(client, user_agent, url, show_ok, &pbar))
-    //        .buffer_unordered(5)
-    //        .collect()
-    //        .await
 }
