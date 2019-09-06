@@ -14,12 +14,15 @@ pub async fn dump_links(config: DumpConfig) -> Result<(), RLinksError> {
     let all_links = links
         .hash_map
         .values()
-        .fold(HashSet::with_capacity(links.link_count as usize) ,|mut acc, x| {
-            x.iter().for_each(|url| {
-                acc.insert(url.as_str());
-            });
-            acc
-        })
+        .fold(
+            HashSet::with_capacity(links.link_count as usize),
+            |mut acc, x| {
+                x.iter().for_each(|url| {
+                    acc.insert(url.as_str());
+                });
+                acc
+            },
+        )
         .into_iter()
         .collect::<Vec<&str>>()
         .join("\n");

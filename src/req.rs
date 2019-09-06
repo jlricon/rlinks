@@ -6,7 +6,7 @@ use std::{
 
 use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
 use futures::{stream, StreamExt, TryFutureExt};
-use http::{header::USER_AGENT, StatusCode};
+use http::{header::USER_AGENT, StatusCode, Version};
 use indicatif::{ProgressBar, ProgressStyle};
 use isahc::{
     config::RedirectPolicy,
@@ -40,8 +40,9 @@ pub fn get_client(timeout: Duration) -> HttpClient {
         .timeout(timeout)
         .connect_timeout(timeout)
         .redirect_policy(RedirectPolicy::Limit(5))
+                .preferred_http_version(Version::HTTP_11)
         .danger_allow_unsafe_ssl(true)
-        //                        .cookies()
+        .cookies()
         .build()
         .unwrap()
 }
