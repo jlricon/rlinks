@@ -23,7 +23,7 @@ futures-preview = { version = "=0.3.0-alpha.18", features = ["async-await","nigh
 indicatif="0.11"
 log = "0.4.8"
 env_logger = "0.6.2"
-isahc = "0.7.2"
+isahc = "0.7.3"
 console = "0.8.0"
 [profile.dev]
 debug-assertions=true
