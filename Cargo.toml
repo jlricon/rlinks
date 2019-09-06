@@ -14,20 +14,19 @@ keywords=["links","url","async","check"]
 [badges.maintenance]
 status = "actively-developed"
 [dependencies]
-clap="*"
-select="*"
-url="*"
-http="*"
+clap= "2.33"
+select= "0.4"
+url= "2.1"
+http= "0.1"
 futures-preview = { version = "=0.3.0-alpha.18", features = ["async-await","nightly"] }
-indicatif="*"
-log = "*"
-env_logger = "*"
-isahc = "*"
-console = "*"
-[profile.dev]
-debug-assertions=true
+indicatif= "0.11"
+log = "0.4"
+env_logger = "0.6"
+isahc = "0.7"
+console = "0.8"
+
 [profile.release]
 opt-level = 3
 debug = false
 lto = true
-debug-assertions=false
+
