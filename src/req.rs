@@ -188,7 +188,6 @@ pub async fn get_links_from_website(
         None => valid_urls,
     };
     let regexed_links_len = regexed_links.len();
-    dbg!(&regexed_links);
 
     let unique_valid_links: HashSet<&Url> = HashSet::from_iter(regexed_links);
     let unique_valid_links_len = unique_valid_links.len();

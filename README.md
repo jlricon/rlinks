@@ -28,7 +28,12 @@ SUBCOMMANDS:
     help     Prints this message or the help of the given subcommand(s)
 
 ```
+## Install
 
+### Cargo
+```
+cargo install rlinks
+```
 ## Benchmarks
 
 I tested this against [this](https://nintil.com/this-review-is-not-about-reviewing-the-elephant-in-the-brain/) 
