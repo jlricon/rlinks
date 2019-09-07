@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/d/rlinks.svg)](https://crates.io/crates/rlinks)
 [![license](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/jlricon/rlinks/blob/master/LICENSE)
 [![Build](https://github.com/jlricon/rlinks/workflows/Build/badge.svg)](https://github.com/jlricon/rlinks)
-[![Snap Status](https://build.snapcraft.io/badge/jlricon/rlinks.svg)](https://build.snapcraft.io/user/jlricon/rlinks)
+[![rlinks](https://snapcraft.io/rlinks/badge.svg)](https://snapcraft.io/rlinks)
 
 Rusty Links -rlinks- is a dead links checker
 
@@ -32,9 +32,12 @@ SUBCOMMANDS:
 ## Install
 
 ### Cargo
-```
-cargo install rlinks
-```
+`cargo install rlinks`
+### Snap
+[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-black.svg)](https://snapcraft.io/rlinks)
+
+`snap install rlinks`
+
 ## Benchmarks
 
 I tested this against [this](https://nintil.com/this-review-is-not-about-reviewing-the-elephant-in-the-brain/) 
