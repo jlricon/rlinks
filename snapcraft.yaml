@@ -18,13 +18,7 @@ parts:
     build-packages:
       - libssl-dev
       - pkg-config
-  set-version:
-    override-pull: |
-      snapcraftctl pull
-      snapcraftctl set-version $(grep -oP '^version = "\K([0-9.]+)' Cargo.toml)
 
-
-    plugin: dump
 
 apps:
   rlinks:
