@@ -1,0 +1,26 @@
+name: rlinks
+version: git
+summary: A link checking and scraping tool
+description: |
+  rlinks is a command line tool for checking that links in websites are live,
+  allowing also to dump chose links for later use.
+  It has a number of configurable options, including level of parallelism, user agent setting
+  and the ability to ignore urls by regex.
+confinement: strict
+base: core18
+grade: stable
+parts:
+  rlinks:
+    plugin: rust
+    rust-channel: nightly
+    source: .
+    build-packages:
+      - libssl-dev
+      - pkg-config
+
+apps:
+  rlinks:
+    command: bin/rlinks
+    plugs:
+      - network
+      - home
