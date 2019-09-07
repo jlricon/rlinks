@@ -6,6 +6,7 @@ description: |
   allowing also to dump chose links for later use.
   It has a number of configurable options, including level of parallelism, user agent setting
   and the ability to ignore urls by regex.
+architectures: [amd64,i386]
 confinement: strict
 base: core18
 grade: stable

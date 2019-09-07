@@ -4,6 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/d/rlinks.svg)](https://crates.io/crates/rlinks)
 [![license](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/jlricon/rlinks/blob/master/LICENSE)
 [![Build](https://github.com/jlricon/rlinks/workflows/Build/badge.svg)](https://github.com/jlricon/rlinks)
+[![Snap Status](https://build.snapcraft.io/badge/jlricon/rlinks.svg)](https://build.snapcraft.io/user/jlricon/rlinks)
 
 Rusty Links -rlinks- is a dead links checker
 
