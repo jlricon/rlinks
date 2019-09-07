@@ -22,17 +22,11 @@ jobs:
         run: cargo  build --verbose
       - name: Run tests
         run: cargo test --verbose
-      - name: Deploy to crates.io
-        if: contains(github.ref,'master')
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        # It would be a waste to verify, we just built and tested
-        run: cargo publish --no-verify
-      - name: Deploy to Snapcraft
-        if: contains(github.ref,'master')
-        env:
-          SNAPCRAFT_EMAIL: $ {{secrets.SNAPCRAFT_EMAIL }}
-          SNAPCRAFT_PASS: $ {{secrets.SNAPCRAFT_PASS }}
-        run: | sudo apt install snapcraft
+#      - name: Deploy to crates.io
+#        if: contains(github.ref,'master')
+#        env:
+#          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+#        # It would be a waste to verify, we just built and tested
+#        run: cargo publish --no-verify
 
 
