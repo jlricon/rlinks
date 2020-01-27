@@ -127,7 +127,7 @@ dependencies = [
 
 [[package]]
 name = "console"
-version = "0.8.0"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "clicolors-control 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -369,7 +369,7 @@ name = "indicatif"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "console 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "console 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "number_prefix 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -844,7 +844,7 @@ name = "rlinks"
 version = "0.6.6"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "console 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "console 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1193,7 +1193,7 @@ dependencies = [
 "checksum clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5067f5bb2d80ef5d68b4c87db81601f0b75bca627bc2ef76b141d7b846a3c6d9"
 "checksum clicolors-control 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "90082ee5dcdd64dc4e9e0d37fbf3ee325419e39c0092191e0393df65518f741e"
 "checksum cloudabi 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ddfc5b9aa5d4507acaf872de71051dfd0e309860e88966e1051e462a077aac4f"
-"checksum console 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b147390a412132d75d10dd3b7b175a69cf5fd95032f7503c7091b8831ba10242"
+"checksum console 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)" = "45e0f3986890b3acbc782009e2629dfe2baa430ac091519ce3be26164a2ae6c0"
 "checksum crossbeam-channel 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "c8ec7fcd21571dc78f96cc96243cab8d8f035247c3efd16c687be154c3fa9efa"
 "checksum crossbeam-utils 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)" = "04973fa96e96579258a5091af6003abde64af786b860f18622b82e026cca60e6"
 "checksum curl 0.4.23 (registry+https://github.com/rust-lang/crates.io-index)" = "d6458247e474561f731d5c13cb5c83c91f752eee770c431d50d22cb07d006e91"
