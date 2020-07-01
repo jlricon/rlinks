@@ -15,7 +15,7 @@ keywords=["links","url","async","check"]
 status = "actively-developed"
 [dependencies]
 clap= "2.33"
-select= "0.4"
+select= "0.5"
 url= "2.1"
 http= "0.1"
 futures-preview = { version = "=0.3.0-alpha.18", features = ["async-await","nightly"] }
