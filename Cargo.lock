@@ -72,6 +72,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bytes"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b700ce4376041dcd0a327fd0097c41095743c4c8af8887265942faf1100bd040"
+
+[[package]]
 name = "cc"
 version = "1.0.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -395,7 +401,18 @@ version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "372bcb56f939e449117fb0869c2e8fd8753a8223d92a172c6e808cf123a5b6e4"
 dependencies = [
- "bytes",
+ "bytes 0.4.12",
+ "fnv",
+ "itoa",
+]
+
+[[package]]
+name = "http"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "527e8c9ac747e28542699a951517aa9a6945af506cd1f2e1b53a576c17b6cc11"
+dependencies = [
+ "bytes 1.0.1",
  "fnv",
  "itoa",
 ]
@@ -449,7 +466,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ce6c273b32f40ac6e712634900dabc9ce446f823cca99e6e204e7866259cd53"
 dependencies = [
- "bytes",
+ "bytes 0.4.12",
  "chrono",
  "crossbeam-channel",
  "crossbeam-utils",
@@ -457,7 +474,7 @@ dependencies = [
  "curl-sys",
  "futures-io-preview",
  "futures-util-preview",
- "http",
+ "http 0.1.18",
  "lazy_static",
  "log",
  "slab",
@@ -838,7 +855,7 @@ dependencies = [
  "console",
  "env_logger",
  "futures",
- "http",
+ "http 0.2.4",
  "indicatif",
  "isahc",
  "log",
