@@ -181,10 +181,8 @@ pub async fn get_links_from_website(
     let regexed_links: Vec<&Url> = match regex {
         Some(r) => valid_urls
             .into_iter()
-            .filter_map(|link| match r.is_match(link.as_str()) {
-                true => None,
-                false => Some(link),
-            })
+            // filter for each link searches for link and returns the link if it does not match
+            .filter(|link| !r.is_match(link.as_str()))
             .collect(),
         None => valid_urls,
     };
