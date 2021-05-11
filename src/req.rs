@@ -105,7 +105,7 @@ async fn request_with_header(
                 "[ERROR] Found unrecoverable error: {} when accessing {}",
                 e, url
             );
-            panic!(e)
+            panic!("{}", e)
         }
     }
 }
