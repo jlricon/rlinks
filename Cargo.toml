@@ -20,7 +20,7 @@ select= "0.5"
 url= "2.1"
 http= "0.2"
 futures = "0.3.14"
-indicatif= "0.11"
+indicatif= "0.16"
 log = "0.4"
 env_logger = "0.7"
 isahc = {version = "1.3", features = ["cookies"] }
