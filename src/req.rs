@@ -63,8 +63,8 @@ async fn request_with_header(
     url: &Url,
 ) -> Result<Response<AsyncBody>, RLinksError> {
     let req = match request_type {
-        RequestType::Head => Request::head(url.clone().into_string()),
-        RequestType::Get => Request::get(url.clone().into_string()),
+        RequestType::Head => Request::head(url.clone().as_str()),
+        RequestType::Get => Request::get(url.clone().as_str()),
     }
     .header(USER_AGENT, user_agent)
     .body(AsyncBody::empty())
