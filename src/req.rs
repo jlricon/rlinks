@@ -12,7 +12,7 @@ use isahc::{
     config::{Configurable, RedirectPolicy, VersionNegotiation},
     error::ErrorKind,
     prelude::*,
-    AsyncBody, HttpClient, Request, Response,
+    AsyncBody, Body, HttpClient, Request, Response,
 };
 
 use regex::Regex;
