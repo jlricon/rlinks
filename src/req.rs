@@ -12,7 +12,7 @@ use isahc::{
     config::{Configurable, RedirectPolicy, VersionNegotiation},
     error::ErrorKind,
     prelude::*,
-    AsyncBody, Body, HttpClient, Request, Response,
+    AsyncBody, HttpClient, Request, Response,
 };
 
 use regex::Regex;
@@ -34,8 +34,8 @@ fn get_status_code_kind(x: StatusCode) -> StatusCodeKind {
 }
 #[derive(Debug)]
 enum RequestType {
-    GET,
-    HEAD,
+    Get,
+    Head,
 }
 pub fn get_client(timeout: Duration) -> HttpClient {
     debug!("Getting client");
@@ -63,8 +63,8 @@ async fn request_with_header(
     url: &Url,
 ) -> Result<Response<AsyncBody>, RLinksError> {
     let req = match request_type {
-        RequestType::HEAD => Request::head(url.clone().into_string()),
-        RequestType::GET => Request::get(url.clone().into_string()),
+        RequestType::Head => Request::head(url.clone().into_string()),
+        RequestType::Get => Request::get(url.clone().into_string()),
     }
     .header(USER_AGENT, user_agent)
     .body(AsyncBody::empty())
@@ -126,7 +126,7 @@ pub async fn get_links_from_website(
     truncate_fragments: bool,
     regex: &Option<Regex>,
 ) -> Result<Links, RLinksError> {
-    let mut response = request_with_header(client, user_agent, RequestType::GET, base_url)
+    let mut response = request_with_header(client, user_agent, RequestType::Get, base_url)
         .await
         .unwrap();
 
@@ -232,7 +232,7 @@ fn get_unique_link_hashmap(unique_valid_links: HashSet<&Url>) -> HostHashMap {
     hash_map
 }
 
-/// Request a url trying with both HEAD and then GET
+/// Request a url trying with both Head and then Get
 async fn is_reachable_url(
     client: &HttpClient,
     user_agent: &str,
@@ -240,7 +240,7 @@ async fn is_reachable_url(
     show_ok: bool,
     pbar: &ProgressBar,
 ) -> StatusCode {
-    let status = request_with_header(client, user_agent, RequestType::HEAD, url)
+    let status = request_with_header(client, user_agent, RequestType::Head, url)
         .await
         .unwrap()
         .status();
@@ -248,7 +248,7 @@ async fn is_reachable_url(
         StatusCodeKind::Valid(_) => Ok(status),
         StatusCodeKind::MethodNotAllowed(_) => {
             match get_status_code_kind(
-                request_with_header(client, user_agent, RequestType::GET, url)
+                request_with_header(client, user_agent, RequestType::Get, url)
                     .await
                     .unwrap()
                     .status(),
