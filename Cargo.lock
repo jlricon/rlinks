@@ -103,6 +103,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chrono"
+version = "0.4.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80094f509cf8b5ae86a4966a39b3ff66cd7e2a3e594accec3743ff3fabeab5b2"
+dependencies = [
+ "num-integer",
+ "num-traits",
+ "time",
+]
+
+[[package]]
 name = "clap"
 version = "2.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -466,6 +477,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bd9294f1ecdda747b8a092b07873285e613adc14e9c9526205eacedcf3ecd2b"
 dependencies = [
  "async-channel",
+ "chrono",
  "crossbeam-utils",
  "curl",
  "curl-sys",
@@ -597,6 +609,16 @@ name = "new_debug_unreachable"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f40f005c60db6e03bae699e414c58bf9aa7ea02a2d0b9bfbcf19286cc4c82b30"
+
+[[package]]
+name = "num-integer"
+version = "0.1.41"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b85e541ef8255f6cf42bbfe4ef361305c6c135d10919ecc26126c4e5ae94bc09"
+dependencies = [
+ "autocfg 0.1.6",
+ "num-traits",
+]
 
 [[package]]
 name = "num-traits"

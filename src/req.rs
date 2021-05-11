@@ -9,9 +9,10 @@ use futures::{stream, StreamExt, TryFutureExt};
 use http::{header::USER_AGENT, StatusCode, Version};
 use indicatif::{ProgressBar, ProgressStyle};
 use isahc::{
-    config::RedirectPolicy,
-    prelude::{HttpClient, Request, Response},
-    Body,
+    config::{Configurable, RedirectPolicy, VersionNegotiation},
+    error::ErrorKind,
+    prelude::*,
+    AsyncBody, Body, HttpClient, Request, Response,
 };
 
 use regex::Regex;
@@ -39,20 +40,20 @@ enum RequestType {
 pub fn get_client(timeout: Duration) -> HttpClient {
     debug!("Getting client");
     HttpClient::builder()
+        .version_negotiation(VersionNegotiation::http11())
         .timeout(timeout)
         .connect_timeout(timeout)
         .redirect_policy(RedirectPolicy::Limit(5))
-        .preferred_http_version(Version::HTTP_11)
-        .danger_allow_unsafe_ssl(true)
         .cookies()
         .build()
         .unwrap()
 }
+// .danger_allow_unsafe_ssl(true)
 // This generates a response with a timeout status so that we can make errors into response
-fn build_fake_response(status: StatusCode) -> Response<Body> {
+fn build_fake_response(status: StatusCode) -> Response<AsyncBody> {
     Response::builder()
         .status(status)
-        .body(Body::empty())
+        .body(AsyncBody::empty())
         .unwrap()
 }
 async fn request_with_header(
@@ -60,42 +61,42 @@ async fn request_with_header(
     user_agent: &str,
     request_type: RequestType,
     url: &Url,
-) -> Result<Response<Body>, RLinksError> {
+) -> Result<Response<AsyncBody>, RLinksError> {
     let req = match request_type {
         RequestType::HEAD => Request::head(url.clone().into_string()),
         RequestType::GET => Request::get(url.clone().into_string()),
     }
     .header(USER_AGENT, user_agent)
-    .body(Body::empty())
+    .body(AsyncBody::empty())
     // This unwrap is safe, we are merely building the request
     .unwrap();
     debug!("Requesting {}", url);
     match client
         .send_async(req)
-        .map_err(RLinksError::RequestError)
+        // .map_err(RLinksError::RequestError)
         .await
     {
         Ok(e) => Ok(e),
 
         // Timeouts become errors, but we want to make these not error just yet, so we make them into fake responses
-        Err(RLinksError::RequestError(isahc::Error::Timeout)) => {
+        Err(e) if e.kind() == ErrorKind::Timeout => {
             info!("[ERROR] Timeout for {}", url);
             Ok(build_fake_response(StatusCode::REQUEST_TIMEOUT))
         }
-        Err(RLinksError::RequestError(isahc::Error::CouldntResolveHost)) => {
+        Err(e) if e.kind() == ErrorKind::NameResolution => {
             info!("[ERROR] Could not resolve host for {}", url);
             Ok(build_fake_response(StatusCode::NOT_FOUND))
         }
-        Err(RLinksError::RequestError(isahc::Error::ConnectFailed)) => {
+        Err(e) if e.kind() == ErrorKind::ConnectionFailed => {
             info!("[ERROR] Connection failed for {}", url);
             Ok(build_fake_response(StatusCode::NOT_FOUND))
         }
-        Err(RLinksError::RequestError(isahc::Error::TooManyRedirects)) => {
+        Err(e) if e.kind() == ErrorKind::TooManyRedirects => {
             info!("[ERROR] Too many redirects for {}", url);
             Ok(build_fake_response(StatusCode::MISDIRECTED_REQUEST))
         }
-        Err(RLinksError::RequestError(isahc::Error::ResponseBodyError(e))) => {
-            info!("[ERROR] Response body error ({:?})for {}", e, url);
+        Err(e) if e.kind() == ErrorKind::RequestBodyNotRewindable => {
+            info!("[ERROR] Response body error for {}", url);
             Ok(build_fake_response(StatusCode::NOT_FOUND))
         }
         // This function should not error, so we panic
@@ -125,7 +126,7 @@ pub async fn get_links_from_website(
     truncate_fragments: bool,
     regex: &Option<Regex>,
 ) -> Result<Links, RLinksError> {
-    let response = request_with_header(client, user_agent, RequestType::GET, base_url)
+    let mut response = request_with_header(client, user_agent, RequestType::GET, base_url)
         .await
         .unwrap();
 
@@ -138,7 +139,7 @@ pub async fn get_links_from_website(
             ))
         }
     }
-    let body = Document::from(response.into_body().text().unwrap().as_str());
+    let body = Document::from(response.text().await.unwrap().as_str());
     let links_in_body: Vec<&str> = {
         let href_links = get_href_links(&body).into_iter();
         let img_links = get_img_links(&body).into_iter();
