@@ -4,7 +4,7 @@ use crate::{
     req::{get_client, get_links_from_website},
     url_fix::add_http,
 };
-use std::{collections::HashSet, error::Error, fs::File, io::Write, path::Path, time::Duration};
+use std::{collections::HashSet, fs::File, io::Write, path::Path, time::Duration};
 
 pub async fn dump_links(config: DumpConfig) -> Result<(), RLinksError> {
     println!("{:?}", config);
