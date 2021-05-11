@@ -42,13 +42,13 @@ fn write_to_file(string: &str, output_file: &str) {
     let path = Path::new(output_file);
     let display = path.display();
     let mut file = match File::create(&path) {
-        Err(why) => panic!("couldn't create {}: {}", display, why.description()),
+        Err(why) => panic!("couldn't create {}: {}", display, why),
         Ok(file) => file,
     };
 
     // Write the `LOREM_IPSUM` string to `file`, returns `io::Result<()>`
     match file.write_all(string.as_bytes()) {
-        Err(why) => panic!("couldn't write to {}: {}", display, why.description()),
+        Err(why) => panic!("couldn't write to {}: {}", display, why),
         Ok(_) => println!("successfully wrote to {}", display),
     }
 }
