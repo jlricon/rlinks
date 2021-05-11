@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{error::RLinksError, text::ColorsExt, url_fix::fix_malformed_url};
-use futures::{stream, StreamExt, TryFutureExt};
+use futures::{stream, StreamExt};
 use http::{header::USER_AGENT, StatusCode, Version};
 use indicatif::{ProgressBar, ProgressStyle};
 use isahc::{
