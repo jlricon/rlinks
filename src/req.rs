@@ -261,16 +261,12 @@ async fn is_reachable_url(
     }
     .map(|response| {
         if show_ok {
-            pbar.println(
-                format!("Success for {} ({})", url, response)
-                    .bold_green()
-                    .to_string(),
-            );
+            pbar.println(format!("Success for {} ({})", url, response).bold_green());
         }
         response
     })
     .map_err(|err| {
-        pbar.println(format!("{}", err).bold_red().to_string());
+        pbar.println(format!("{}", err).bold_red());
         err
     });
     pbar.inc(1);
